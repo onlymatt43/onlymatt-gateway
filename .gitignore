@@ -1,45 +1,47 @@
-# === Secrets & environnements ===
+# === ONLYMATT Gateway Git Ignore ===
+
+# Environnements & secrets
 .env
 .env.*
-.secret*
-.key
+*.key
+*.pem
+*.crt
 
-# === Environnements virtuels ===
-.venv/
-venv/
-*.venv
-
-# === Bases de données locales (jamais en prod) ===
-*.db
-*.db-journal
-*.sqlite
-*.sqlite3
-memory.db
-
-# === Caches Python ===
+# Python cache & build
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-
-# === Fichiers de logs et runtime ===
+*.egg-info/
+dist/
+build/
 *.log
-logs/
-nohup.out
-*.pid
 
-# === macOS / IDE ===
+# Virtualenv
+.venv/
+venv/
+env/
+
+# IDE / OS files
 .DS_Store
 .idea/
 .vscode/
-*.code-workspace
+*.swp
 
-# === Docker / Deploy temporaire ===
-docker-compose.override.yml
+# Local scripts & notes
+gateway.log
+run_gateway.sh
 *.bak
 *.tmp
+*.local
+*.cache
 
-# === Tests / sandbox ===
-tests/__pycache__/
-sandbox/
-__old__/
+# Docs non publiques
+ONLYMATT_GATEWAY_DEV_GUIDE.pdf
+README_DEV.md
+
+# Render / ngrok / host data
+*.ngrok
+ngrok.yml
+*.sock
+*.pid
