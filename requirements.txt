@@ -6,3 +6,4 @@ sqlite-utils
 python-dotenv
 groq
 libsql-client
+httpx
