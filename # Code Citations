@@ -1,0 +1,153 @@
+# Code Citations
+
+## License: unknown
+https://github.com/r23/MyOOS/blob/6aa924df141732a226b6122bb3641afb60af865c/wordpress/wp-content/plugins/decalog/includes/system/class-loader.php
+
+```
+.0.0
+     */
+    public function run() {
+        foreach ($this->filters as $hook) {
+            add_filter(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            );
+        }
+        
+        foreach ($this->actions as $hook) {
+            add_action(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            )
+```
+
+
+## License: unknown
+https://github.com/siddheshlendhe/flybig_beta/blob/0daa474df21e4089fcbabc19e761defe05288e6f/wp-content/plugins/travelpayouts/src/includes/HooksLoader.php
+
+```
+.0.0
+     */
+    public function run() {
+        foreach ($this->filters as $hook) {
+            add_filter(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            );
+        }
+        
+        foreach ($this->actions as $hook) {
+            add_action(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            )
+```
+
+
+## License: unknown
+https://github.com/r23/MyOOS/blob/6aa924df141732a226b6122bb3641afb60af865c/wordpress/wp-content/plugins/decalog/includes/system/class-loader.php
+
+```
+.0.0
+     */
+    public function run() {
+        foreach ($this->filters as $hook) {
+            add_filter(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            );
+        }
+        
+        foreach ($this->actions as $hook) {
+            add_action(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+```
+
+
+## License: unknown
+https://github.com/siddheshlendhe/flybig_beta/blob/0daa474df21e4089fcbabc19e761defe05288e6f/wp-content/plugins/travelpayouts/src/includes/HooksLoader.php
+
+```
+.0.0
+     */
+    public function run() {
+        foreach ($this->filters as $hook) {
+            add_filter(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            );
+        }
+        
+        foreach ($this->actions as $hook) {
+            add_action(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+```
+
+
+## License: unknown
+https://github.com/r23/MyOOS/blob/6aa924df141732a226b6122bb3641afb60af865c/wordpress/wp-content/plugins/decalog/includes/system/class-loader.php
+
+```
+.0.0
+     */
+    public function run() {
+        foreach ($this->filters as $hook) {
+            add_filter(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            );
+        }
+        
+        foreach ($this->actions as $hook) {
+            add_action(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            )
+```
+
+
+## License: unknown
+https://github.com/siddheshlendhe/flybig_beta/blob/0daa474df21e4089fcbabc19e761defe05288e6f/wp-content/plugins/travelpayouts/src/includes/HooksLoader.php
+
+```
+.0.0
+     */
+    public function run() {
+        foreach ($this->filters as $hook) {
+            add_filter(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            );
+        }
+        
+        foreach ($this->actions as $hook) {
+            add_action(
+                $hook['hook'],
+                [$hook['component'], $hook['callback']],
+                $hook['priority'],
+                $hook['accepted_args']
+            )
+```
+

@@ -1,0 +1,45 @@
+# === Secrets & environnements ===
+.env
+.env.*
+.secret*
+.key
+
+# === Environnements virtuels ===
+.venv/
+venv/
+*.venv
+
+# === Bases de données locales (jamais en prod) ===
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+memory.db
+
+# === Caches Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# === Fichiers de logs et runtime ===
+*.log
+logs/
+nohup.out
+*.pid
+
+# === macOS / IDE ===
+.DS_Store
+.idea/
+.vscode/
+*.code-workspace
+
+# === Docker / Deploy temporaire ===
+docker-compose.override.yml
+*.bak
+*.tmp
+
+# === Tests / sandbox ===
+tests/__pycache__/
+sandbox/
+__old__/
