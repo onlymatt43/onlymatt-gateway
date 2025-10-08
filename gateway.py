@@ -117,10 +117,22 @@ async def tags(request: Request, x_om_key: str = Header(None)):
 async def chat(payload: ChatPayload, request: Request, x_om_key: str = Header(None)):
     if x_om_key != APP_KEY:
         raise HTTPException(status_code=403, detail="Unauthorized")
-    ratelimit(request.client.host if request.client else "unknown")
 
+    ratelimit(request.client.host if request.client else "unknown")
     url = f"{OLLAMA_URL}/api/chat"
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(url, json=payload.dict())
-        r.raise_for_status()
-        return r.json()
+
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            # forcer la désactivation du streaming
+            data = {**payload.dict(), "stream": False}
+            r = await client.post(url, json=data)
+            r.raise_for_status()
+            return r.json()
+
+    except httpx.RequestError as e:
+        print(f"[Gateway] Erreur de connexion Ollama: {e}")
+        raise HTTPException(status_code=502, detail="Ollama unreachable")
+
+    except httpx.HTTPStatusError as e:
+        print(f"[Gateway] Erreur HTTP Ollama: {e.response.status_code} - {e.response.text}")
+        raise HTTPException(status_code=500, detail="Ollama internal error")
