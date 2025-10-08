@@ -1,111 +1,77 @@
-# ONLYMATT Gateway - Version complète
-# Unifie : Ollama local / OpenAI / Render proxy / Hostinger backend
-# Auteur : M. Courchesne
-
-import os
-import json
-import httpx
-import logging
+# ONLYMATT Gateway (stable)
+import os, httpx, logging
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-# ------------------------------------------------------------------------------
-# CONFIGURATION GLOBALE
-# ------------------------------------------------------------------------------
-AI_BACKEND = os.getenv("AI_BACKEND", "https://ai.onlymatt.ca")
+AI_BACKEND   = os.getenv("AI_BACKEND", "https://ai.onlymatt.ca")
 OM_ADMIN_KEY = os.getenv("OM_ADMIN_KEY", "")
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
-OM_GATEWAY_KEY = os.getenv("OM_GATEWAY_KEY", "sk_gateway_default")
-OM_ALLOWED_ORIGINS = os.getenv(
-    "OM_ALLOWED_ORIGINS",
-    "https://onlymatt.ca,https://om43.com,https://*.onlymatt.ca,https://*.om43.com,http://localhost:3000"
-).split(",")
+OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
 
 logging.basicConfig(level=logging.INFO)
-app = FastAPI(title="ONLYMATT Gateway", version="2.0")
+app = FastAPI(title="ONLYMATT Gateway", version="2.1")
 
+# CORS: wildcards via regex (onlymatt.ca + om43.com + localhost)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=OM_ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://([a-z0-9-]+\.)?(onlymatt\.ca|om43\.com)$|http://localhost:3000",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ------------------------------------------------------------------------------
-# HEALTHCHECK
-# ------------------------------------------------------------------------------
 @app.get("/healthz")
 async def health():
     return {"ok": True, "backend": AI_BACKEND, "ollama": OLLAMA_URL}
 
-# ------------------------------------------------------------------------------
-# GENERIC POST PROXY
-# ------------------------------------------------------------------------------
-async def proxy_post(url: str, data: dict, headers: dict = None):
+# ---------- helper: forward raw (évite 500 quand pas JSON) ----------
+async def proxy_post_raw(url: str, request: Request, extra_headers: dict | None = None):
+    body = await request.body()
+    headers = {"Content-Type": request.headers.get("content-type", "application/json")}
+    if extra_headers: headers.update(extra_headers)
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.post(url, json=data, headers=headers)
-            return JSONResponse(content=r.json(), status_code=r.status_code)
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            r = await client.post(url, content=body, headers=headers)
+        return Response(
+            content=r.content,
+            status_code=r.status_code,
+            media_type=r.headers.get("content-type", "application/octet-stream"),
+        )
     except Exception as e:
+        logging.exception("proxy error")
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
-# ------------------------------------------------------------------------------
-# LOCAL / OLLAMA
-# ------------------------------------------------------------------------------
+# ---------- OLLAMA local ----------
 @app.post("/local/chat")
 async def local_chat(request: Request):
-    data = await request.json()
-    async with httpx.AsyncClient() as client:
-        r = await client.post(OLLAMA_URL, json=data)
-    return JSONResponse(r.json())
+    data = await request.body()
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.post(OLLAMA_URL, content=data, headers={
+            "Content-Type": request.headers.get("content-type","application/json")
+        })
+    return Response(r.content, r.status_code, media_type=r.headers.get("content-type","application/json"))
 
-# ------------------------------------------------------------------------------
-# REMOTE / OPENAI STYLE ENDPOINT
-# ------------------------------------------------------------------------------
+# ---------- anciennes routes /api/* (compat) ----------
 @app.post("/api/chat")
 async def api_chat(request: Request):
-    data = await request.json()
-    return await proxy_post(AI_BACKEND + "/chat/ai-chat.php", data)
+    return await proxy_post_raw(f"{AI_BACKEND}/chat/ai-chat.php", request)
 
-# ------------------------------------------------------------------------------
-# ADMIN CALLS (avec clé)
-# ------------------------------------------------------------------------------
 @app.post("/api/admin")
 async def api_admin(request: Request):
-    data = await request.json()
-    headers = {"X-OM-ADMIN-KEY": OM_ADMIN_KEY}
-    return await proxy_post(AI_BACKEND + "/admin/ai-admin.php", data, headers=headers)
+    return await proxy_post_raw(f"{AI_BACKEND}/admin/ai-admin.php", request,
+                                {"X-OM-ADMIN-KEY": OM_ADMIN_KEY})
 
-# ------------------------------------------------------------------------------
-# NOUVELLES ROUTES POUR LE SYSTÈME HOSTINGER
-# ------------------------------------------------------------------------------
+# ---------- routes officielles /ai/* ----------
 @app.post("/ai/chat")
 async def ai_chat(request: Request):
-    """Route publique relayée vers le backend Hostinger."""
-    data = await request.json()
-    async with httpx.AsyncClient() as client:
-        r = await client.post("https://ai.onlymatt.ca/chat/ai-chat.php", json=data)
-        return JSONResponse(r.json(), status_code=r.status_code)
+    return await proxy_post_raw(f"{AI_BACKEND}/chat/ai-chat.php", request)
 
 @app.post("/ai/admin")
 async def ai_admin(request: Request):
-    """Route d'administration sécurisée relayée vers Hostinger."""
-    data = await request.json()
-    headers = {"X-OM-ADMIN-KEY": OM_ADMIN_KEY}
-    async with httpx.AsyncClient() as client:
-        r = await client.post("https://ai.onlymatt.ca/admin/ai-admin.php", json=data, headers=headers)
-        return JSONResponse(r.json(), status_code=r.status_code)
+    return await proxy_post_raw(f"{AI_BACKEND}/admin/ai-admin.php", request,
+                                {"X-OM-ADMIN-KEY": OM_ADMIN_KEY})
 
-# ------------------------------------------------------------------------------
-# DEFAULT / ROOT
-# ------------------------------------------------------------------------------
 @app.get("/")
 async def root():
-    return {
-        "ok": True,
-        "service": "ONLYMATT Gateway",
-        "version": "2.0",
-        "routes": ["/ai/chat", "/ai/admin", "/api/chat", "/api/admin", "/local/chat"]
-    }
+    return {"ok": True, "service": "ONLYMATT Gateway", "version": "2.1",
+            "routes": ["/ai/chat","/ai/admin","/api/chat","/api/admin","/local/chat"]}
