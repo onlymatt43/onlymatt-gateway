@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic
+requests
+sqlite-utils
+python-dotenv
+groq
+libsql-client
+httpx

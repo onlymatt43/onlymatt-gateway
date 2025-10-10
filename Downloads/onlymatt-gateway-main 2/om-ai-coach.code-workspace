@@ -1,0 +1,10 @@
+{
+	"folders": [
+		{
+			"path": "../content-protect-pro"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}
