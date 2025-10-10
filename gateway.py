@@ -169,6 +169,42 @@ async def diagnostic():
     except Exception as e:
         results["ai_chat_ping"] = f"error: {str(e)}"
     
+    # Check WordPress diagnostic (if available)
+    try:
+        # Assuming diagnostic is at a public endpoint, e.g., https://onlymatt.ca/diagnostic
+        wp_diagnostic_url = os.getenv("WP_DIAGNOSTIC_URL", "https://onlymatt.ca/diagnostic")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(wp_diagnostic_url)
+        if r.status_code == 200:
+            wp_data = r.json()
+            results["wp_diagnostic"] = "ok"
+            results.update({f"wp_{k}": v for k, v in wp_data.items()})
+        else:
+            results["wp_diagnostic"] = f"error {r.status_code}"
+    except Exception as e:
+        results["wp_diagnostic"] = f"error: {str(e)}"
+    
+    # Check Turso database
+    if db_client:
+        try:
+            # Check coaches table
+            result = db_client.execute("SELECT COUNT(*) as count FROM coaches")
+            coaches_count = result.fetchone()[0]
+            results["turso_coaches"] = f"ok ({coaches_count} coaches)"
+        except Exception as e:
+            results["turso_coaches"] = f"error: {str(e)}"
+        
+        try:
+            # Check avatars table
+            result = db_client.execute("SELECT COUNT(*) as count FROM avatars")
+            avatars_count = result.fetchone()[0]
+            results["turso_avatars"] = f"ok ({avatars_count} avatars)"
+        except Exception as e:
+            results["turso_avatars"] = f"error: {str(e)}"
+    else:
+        results["turso_coaches"] = "error: DB not connected"
+        results["turso_avatars"] = "error: DB not connected"
+    
     return results
 
 @app.get("/")
