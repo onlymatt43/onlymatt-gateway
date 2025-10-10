@@ -10,9 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 import httpx
 import asyncio
-import libsql_client
+import libsql
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 AI_BACKEND = os.getenv("AI_BACKEND", "https://ai.onlymatt.ca")
 OM_ADMIN_KEY = os.getenv("OM_ADMIN_KEY")
@@ -30,10 +34,7 @@ async def startup_event():
     global turso_client
     if TURSO_DB_URL and TURSO_AUTH_TOKEN:
         logging.info("Connecting to Turso DB...")
-        turso_client = libsql_client.create_client(
-            url=TURSO_DB_URL,
-            auth_token=TURSO_AUTH_TOKEN
-        )
+        turso_client = libsql.connect(TURSO_DB_URL, auth_token=TURSO_AUTH_TOKEN)
         await setup_database()
     else:
         logging.warning("Turso DB environment variables not set. Logging is disabled.")
@@ -41,8 +42,7 @@ async def startup_event():
 async def setup_database():
     if not turso_client: return
     try:
-        await turso_client.batch([
-            """
+        await asyncio.to_thread(turso_client.execute, """
             CREATE TABLE IF NOT EXISTS interactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp TEXT NOT NULL,
@@ -52,52 +52,54 @@ async def setup_database():
                 response_body TEXT,
                 status_code INTEGER
             )
-            """,
-            """
+        """)
+        await asyncio.to_thread(turso_client.execute, """
             CREATE TABLE IF NOT EXISTS avatars (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE
             )
-            """,
-            """
+        """)
+        await asyncio.to_thread(turso_client.execute, """
             CREATE TABLE IF NOT EXISTS sites (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 domain TEXT NOT NULL UNIQUE,
                 avatar_id INTEGER,
                 FOREIGN KEY (avatar_id) REFERENCES avatars(id)
             )
-            """
-        ])
+        """)
         
         # --- Seed default data if tables are empty ---
-        rs_avatars = await turso_client.execute("SELECT count(*) FROM avatars")
-        if rs_avatars.rows[0][0] == 0:
+        rs_avatars = await asyncio.to_thread(turso_client.execute, "SELECT count(*) FROM avatars")
+        avatar_count = rs_avatars.fetchall()
+        if avatar_count and avatar_count[0][0] == 0:
             logging.info("Seeding default avatars...")
-            await turso_client.batch([
-                "INSERT INTO avatars (name) VALUES ('public')",
-                "INSERT INTO avatars (name) VALUES ('coach')"
-            ])
+            await asyncio.to_thread(turso_client.execute, "INSERT INTO avatars (name) VALUES ('public')")
+            await asyncio.to_thread(turso_client.execute, "INSERT INTO avatars (name) VALUES ('coach')")
 
-        rs_sites = await turso_client.execute("SELECT count(*) FROM sites")
-        if rs_sites.rows[0][0] == 0:
+        rs_sites = await asyncio.to_thread(turso_client.execute, "SELECT count(*) FROM sites")
+        site_count = rs_sites.fetchall()
+        if site_count and site_count[0][0] == 0:
             logging.info("Seeding default site configuration...")
             # Get avatar IDs
-            rs_public_avatar = await turso_client.execute("SELECT id FROM avatars WHERE name = 'public'")
-            rs_coach_avatar = await turso_client.execute("SELECT id FROM avatars WHERE name = 'coach'")
+            rs_public_avatar = await asyncio.to_thread(turso_client.execute, "SELECT id FROM avatars WHERE name = 'public'")
+            rs_coach_avatar = await asyncio.to_thread(turso_client.execute, "SELECT id FROM avatars WHERE name = 'coach'")
             
-            public_avatar_id = rs_public_avatar.rows[0][0] if rs_public_avatar.rows else None
-            coach_avatar_id = rs_coach_avatar.rows[0][0] if rs_coach_avatar.rows else None
+            public_result = rs_public_avatar.fetchall()
+            coach_result = rs_coach_avatar.fetchall()
+            
+            public_avatar_id = public_result[0][0] if public_result else None
+            coach_avatar_id = coach_result[0][0] if coach_result else None
 
             # Default wildcard site uses 'public'
             if public_avatar_id:
-                await turso_client.execute(
+                await asyncio.to_thread(turso_client.execute,
                     "INSERT INTO sites (domain, avatar_id) VALUES (?, ?)",
                     ["*", public_avatar_id]
                 )
             
             # admin.onlymatt.ca uses 'coach'
             if coach_avatar_id:
-                await turso_client.execute(
+                await asyncio.to_thread(turso_client.execute,
                     "INSERT INTO sites (domain, avatar_id) VALUES (?, ?)",
                     ["admin.onlymatt.ca", coach_avatar_id]
                 )
@@ -113,7 +115,7 @@ async def log_to_turso(origin, path, req_body, resp_body, status):
         req_body_str = json.dumps(req_body) if isinstance(req_body, dict) else str(req_body)
         resp_body_str = json.dumps(resp_body) if isinstance(resp_body, dict) else str(resp_body)
 
-        await turso_client.execute(
+        await asyncio.to_thread(turso_client.execute,
             "INSERT INTO interactions (timestamp, source_origin, request_path, request_body, response_body, status_code) VALUES (?, ?, ?, ?, ?, ?)",
             [
                 datetime.now(timezone.utc).isoformat(),
@@ -201,20 +203,22 @@ async def forward_request(request: Request, target_url: str, extra_headers: Opti
     if turso_client:
         try:
             # Find a specific site configuration
-            rs_site = await turso_client.execute(
+            rs_site = await asyncio.to_thread(turso_client.execute,
                 "SELECT s.domain, a.name FROM sites s JOIN avatars a ON s.avatar_id = a.id WHERE s.domain = ?", [origin_domain]
             )
             
-            if rs_site.rows:
-                avatar_name = rs_site.rows[0][1]
+            site_result = rs_site.fetchall()
+            if site_result:
+                avatar_name = site_result[0][1]
                 logging.info(f"Avatar '{avatar_name}' selected for specific domain '{origin_domain}'")
             else:
                 # If no specific domain, look for the wildcard default
-                rs_default_site = await turso_client.execute(
+                rs_default_site = await asyncio.to_thread(turso_client.execute,
                     "SELECT a.name FROM sites s JOIN avatars a ON s.avatar_id = a.id WHERE s.domain = '*'"
                 )
-                if rs_default_site.rows:
-                    avatar_name = rs_default_site.rows[0][0]
+                default_result = rs_default_site.fetchall()
+                if default_result:
+                    avatar_name = default_result[0][0]
                     logging.info(f"Avatar '{avatar_name}' selected for wildcard domain.")
             
         except Exception as e:
