@@ -171,10 +171,39 @@ TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "20"))
 
 secure_router = APIRouter(dependencies=[Depends(verify_gateway_key)])
 
-@app.get("/healthz")
-@app.get("/ai/health")
-async def health():
-    return {"ok": True, "backend": AI_BACKEND}
+@app.get("/diagnostic")
+async def diagnostic():
+    """Simple diagnostic endpoint to check environment and connections"""
+    try:
+        # Check environment variables (don't expose sensitive data)
+        env_status = {
+            "TURSO_DB_URL": bool(os.getenv("TURSO_DB_URL")),
+            "TURSO_AUTH_TOKEN": bool(os.getenv("TURSO_AUTH_TOKEN")),
+            "AI_BACKEND": os.getenv("AI_BACKEND"),
+            "OM_GATEWAY_KEY": bool(os.getenv("OM_GATEWAY_KEY")),
+        }
+        
+        # Test Turso connection
+        turso_status = "not configured"
+        if turso_client:
+            try:
+                # Simple test query
+                result = await asyncio.to_thread(turso_client.execute, "SELECT 1 as test")
+                turso_status = "connected"
+            except Exception as e:
+                turso_status = f"error: {str(e)[:100]}"
+        else:
+            turso_status = "client not initialized"
+        
+        return {
+            "ok": True,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "environment": env_status,
+            "turso": turso_status,
+            "version": "1.0.0"
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 async def forward_request(request: Request, target_url: str, extra_headers: Optional[Dict[str, str]] = None) -> Response:
     """
@@ -236,26 +265,8 @@ async def forward_request(request: Request, target_url: str, extra_headers: Opti
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             r = await client.request(method, target_url, content=req_body, headers=backend_headers)
         
-        # Log the interaction in the background
-        resp_body_for_log = None
-        try:
-            resp_body_for_log = r.json()
-        except json.JSONDecodeError:
-            try:
-                resp_body_for_log = r.text
-            except UnicodeDecodeError:
-                resp_body_for_log = f"<binary content: {len(r.content)} bytes>"
-        
-        # Safely decode request body
-        req_body_for_log = None
-        try:
-            req_body_for_log = req_body.decode('utf-8')
-        except (UnicodeDecodeError, AttributeError):
-            req_body_for_log = f"<binary content: {len(req_body) if req_body else 0} bytes>"
-        
-        asyncio.create_task(log_to_turso(origin_domain, path, req_body_for_log, resp_body_for_log, r.status_code))
-
         # Return the response from the backend
+        # Don't try to decode content that might be binary
         response_headers = {k: v for k, v in r.headers.items() if k.lower() not in ['content-encoding', 'transfer-encoding']}
         return Response(content=r.content, status_code=r.status_code, headers=response_headers)
 
