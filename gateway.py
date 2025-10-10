@@ -272,14 +272,16 @@ async def forward_request(request: Request, target_url: str, extra_headers: Opti
 
     except httpx.ReadTimeout:
         logging.error(f"Gateway timeout when forwarding to {target_url}")
-        req_body_for_log = req_body.decode() if isinstance(req_body, bytes) else str(req_body)
-        asyncio.create_task(log_to_turso(origin_domain, path, req_body_for_log, {"error": "Gateway timeout"}, 504))
         return JSONResponse({"ok": False, "error": "Gateway timeout"}, status_code=504)
     except Exception as e:
         logging.error(f"Error forwarding request to {target_url}: {e}")
-        req_body_for_log = req_body.decode() if isinstance(req_body, bytes) else str(req_body)
-        asyncio.create_task(log_to_turso(origin_domain, path, req_body_for_log, {"error": str(e)}, 502))
-        return JSONResponse({"ok": False, "error": f"Failed to connect to backend: {e}"}, status_code=502)
+        # Don't try to decode the exception message if it contains invalid UTF-8
+        error_msg = "Failed to connect to backend"
+        try:
+            error_msg = f"Failed to connect to backend: {str(e)}"
+        except UnicodeEncodeError:
+            error_msg = "Failed to connect to backend: encoding error"
+        return JSONResponse({"ok": False, "error": error_msg}, status_code=502)
 
 @secure_router.post("/ai/chat")
 async def proxy_chat(request: Request):
