@@ -143,7 +143,7 @@ async def verify_gateway_key(request: Request):
         raise HTTPException(status_code=403, detail="Invalid X-OM-GATEWAY-KEY")
 
 # CORS: autorise onlymatt.ca & om43.com (tous sous-domaines) + localhost pour tests
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
+ALLOWED_ORIGINS = os.getenv("OM_ALLOWED_ORIGINS", "*")
 if ALLOWED_ORIGINS == "*":
     origins = [
         "https://onlymatt.ca",
