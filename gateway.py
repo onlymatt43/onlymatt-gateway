@@ -285,7 +285,7 @@ async def forward_request(request: Request, target_url: str, extra_headers: Opti
 
 @secure_router.post("/ai/chat")
 async def proxy_chat(request: Request):
-    return await forward_request(request, f"{AI_BACKEND}/chat/ai-chat.php")
+    return await forward_request(request, f"{AI_BACKEND}/ai-chat.php")
 
 @secure_router.post("/ai/admin")
 async def proxy_admin(request: Request):
@@ -294,7 +294,7 @@ async def proxy_admin(request: Request):
     
     return await forward_request(
         request, 
-        f"{AI_BACKEND}/admin/ai-admin.php",
+        f"{AI_BACKEND}/ai-admin.php",
         extra_headers={"X-OM-ADMIN-KEY": OM_ADMIN_KEY}
     )
 
