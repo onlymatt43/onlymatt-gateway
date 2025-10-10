@@ -241,9 +241,19 @@ async def forward_request(request: Request, target_url: str, extra_headers: Opti
         try:
             resp_body_for_log = r.json()
         except json.JSONDecodeError:
-            resp_body_for_log = r.text
+            try:
+                resp_body_for_log = r.text
+            except UnicodeDecodeError:
+                resp_body_for_log = f"<binary content: {len(r.content)} bytes>"
         
-        asyncio.create_task(log_to_turso(origin_domain, path, req_body.decode(), resp_body_for_log, r.status_code))
+        # Safely decode request body
+        req_body_for_log = None
+        try:
+            req_body_for_log = req_body.decode('utf-8')
+        except (UnicodeDecodeError, AttributeError):
+            req_body_for_log = f"<binary content: {len(req_body) if req_body else 0} bytes>"
+        
+        asyncio.create_task(log_to_turso(origin_domain, path, req_body_for_log, resp_body_for_log, r.status_code))
 
         # Return the response from the backend
         response_headers = {k: v for k, v in r.headers.items() if k.lower() not in ['content-encoding', 'transfer-encoding']}
@@ -251,11 +261,13 @@ async def forward_request(request: Request, target_url: str, extra_headers: Opti
 
     except httpx.ReadTimeout:
         logging.error(f"Gateway timeout when forwarding to {target_url}")
-        asyncio.create_task(log_to_turso(origin_domain, path, req_body.decode(), {"error": "Gateway timeout"}, 504))
+        req_body_for_log = req_body.decode() if isinstance(req_body, bytes) else str(req_body)
+        asyncio.create_task(log_to_turso(origin_domain, path, req_body_for_log, {"error": "Gateway timeout"}, 504))
         return JSONResponse({"ok": False, "error": "Gateway timeout"}, status_code=504)
     except Exception as e:
         logging.error(f"Error forwarding request to {target_url}: {e}")
-        asyncio.create_task(log_to_turso(origin_domain, path, req_body.decode(), {"error": str(e)}, 502))
+        req_body_for_log = req_body.decode() if isinstance(req_body, bytes) else str(req_body)
+        asyncio.create_task(log_to_turso(origin_domain, path, req_body_for_log, {"error": str(e)}, 502))
         return JSONResponse({"ok": False, "error": f"Failed to connect to backend: {e}"}, status_code=502)
 
 @secure_router.post("/ai/chat")
