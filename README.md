@@ -1,98 +1,64 @@
-# Résumé du Projet OnlyMatt Gateway & Prochaines Étapes
+# OnlyMatt Gateway v2.2
 
-Ce document résume le travail accompli pour la mise en place de la passerelle AI et les actions restantes pour le déploiement en production.
+Unified API Gateway for OnlyMatt AI ecosystem, connecting to ai.onlymatt.ca backend and integrating Turso database for ai-coach-admin and ai-public-avatar services.
 
----
+## Features
 
-## ✅ Ce qui a été fait (dans cet environnement de développement)
+- **Proxy to Hostinger Backend**: Routes `/ai/chat` and `/ai/admin` to ai.onlymatt.ca
+- **Turso Database Integration**: Connected database for coaches and avatars data
+- **New Endpoints**:
+  - `/ai/coach/admin`: Admin operations for coaches (create, list)
+  - `/ai/avatar/public`: Public avatar data and interactions
+- **Diagnostic Route**: `/diagnostic` for health checks
+- **CORS Support**: Allows *.onlymatt.ca, *.om43.com, localhost:3000
+- **Legacy Compatibility**: `/api/chat` and `/api/admin` routes
 
-Nous avons entièrement configuré l'application de la passerelle et préparé l'intégration avec WordPress.
+## Environment Variables
 
-### 1. Passerelle AI (`onlymatt-gateway`)
-- **Création du code source (`gateway.py`)** :
-    - Utilisation du framework **FastAPI**.
-    - Ajout des routes principales : `/chat`, `/history`, et `/settings`.
-    - Mise en place d'une base de données **SQLite** (`memory.db`) pour gérer l'historique des conversations.
-    - Sécurisation des points d'accès via une clé API (`X-OM-KEY`).
-    - Configuration **CORS** pour autoriser les requêtes depuis tous les sous-domaines de `onlymatt.ca` et `localhost`.
-- **Gestion des dépendances** :
-    - Création du fichier `requirements.txt` listant toutes les librairies Python nécessaires.
-    - Création d'un **environnement virtuel** (`.venv`) pour isoler le projet.
-    - Installation de toutes les dépendances.
-- **Fichiers de configuration** :
-    - Création du fichier `.env` pour stocker les secrets et les URLs de configuration.
-- **Lancement local** :
-    - Le serveur de la passerelle a été lancé et tourne actuellement en arrière-plan sur cette machine.
+- `AI_BACKEND`: URL of the AI backend (default: https://ai.onlymatt.ca)
+- `OM_ADMIN_KEY`: Admin key for secure endpoints
+- `OLLAMA_URL`: Local Ollama URL (default: http://localhost:11434/api/chat)
+- `TURSO_URL`: Turso database URL
+- `TURSO_AUTH_TOKEN`: Turso authentication token
 
-### 2. Intégration WordPress (`ai-onlymatt-all`)
-- **Mise à jour du script de l'avatar (`avatar.js`)** :
-    - Le fichier a été modifié pour appeler la nouvelle passerelle à l'adresse `https://api.onlymatt.ca/chat`.
-    - La logique pour envoyer le texte de l'utilisateur et déclencher la lecture de la réponse est en place.
+## Setup
 
-### 3. Préparation pour la Production
-- **Fichier de service (`onlymatt-gateway.service`)** :
-    - Un fichier de configuration pour `systemd` a été créé. Il permettra de lancer la passerelle comme un service stable sur votre serveur.
-- **Fichier de configuration Nginx (`nginx.conf`)** :
-    - Un fichier de configuration pour Nginx a été créé pour agir comme reverse proxy, gérer le domaine `api.onlymatt.ca` et le sécuriser via HTTPS.
+1. Install dependencies: `pip install -r requirements.txt`
+2. Set environment variables in `.env` or Render dashboard
+3. For Turso: Create database and run schema:
 
----
+```sql
+CREATE TABLE coaches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT
+);
 
-## 🚀 Ce qu'il reste à faire (sur votre serveur de production)
+CREATE TABLE avatars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    public INTEGER DEFAULT 0,
+    views INTEGER DEFAULT 0
+);
+```
 
-Les étapes suivantes doivent être réalisées manuellement sur votre serveur pour mettre le système en ligne.
+4. Run locally: `uvicorn gateway:app --reload`
+5. Deploy to Render with Procfile
 
-### 1. Configuration du Nom de Domaine (DNS)
-- Chez votre fournisseur de nom de domaine (là où vous avez acheté `onlymatt.ca`), créez un nouvel enregistrement de type **`A`**.
-- **Sous-domaine** : `api`
-- **Valeur** : L'adresse IP de votre serveur de production.
+## Routes
 
-### 2. Déploiement des Fichiers
-- Connectez-vous à votre serveur.
-- Copiez l'intégralité du dossier `onlymatt-gateway` de votre machine locale vers le dossier `/opt/onlymatt-gateway` sur le serveur.
+- `GET /`: API info and available routes
+- `GET /healthz`: Health check
+- `GET /diagnostic`: Connection diagnostics
+- `POST /ai/chat`: Chat with AI
+- `POST /ai/admin`: Admin actions
+- `POST /ai/coach/admin`: Coach management
+- `GET /ai/avatar/public`: Get public avatars
+- `POST /ai/avatar/public`: Interact with avatars
+- `POST /api/chat`: Legacy chat
+- `POST /api/admin`: Legacy admin
+- `POST /local/chat`: Local Ollama chat
 
-### 3. Mise en place du Service `systemd`
-- Déplacez le fichier de service :
-  ```bash
-  sudo mv /opt/onlymatt-gateway/onlymatt-gateway.service /etc/systemd/system/
-  ```
-- Rechargez `systemd` et lancez le service :
-  ```bash
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now onlymatt-gateway
-  ```
-- Vérifiez que le service tourne bien :
-  ```bash
-  sudo systemctl status onlymatt-gateway
-  ```
+## Deployment
 
-### 4. Configuration de Nginx
-- Déplacez le fichier de configuration Nginx :
-  ```bash
-  sudo mv /opt/onlymatt-gateway/nginx.conf /etc/nginx/sites-available/api.onlymatt.ca
-  ```
-- Activez le site en créant un lien symbolique :
-  ```bash
-  sudo ln -s /etc/nginx/sites-available/api.onlymatt.ca /etc/nginx/sites-enabled/
-  ```
-- Testez la configuration Nginx :
-  ```bash
-  sudo nginx -t
-  ```
-
-### 5. Sécurisation avec HTTPS (Let's Encrypt)
-- Si ce n'est pas déjà fait, installez Certbot :
-  ```bash
-  sudo apt update && sudo apt install certbot python3-certbot-nginx
-  ```
-- Lancez Certbot pour obtenir et installer automatiquement un certificat SSL :
-  ```bash
-  sudo certbot --nginx -d api.onlymatt.ca
-  ```
-- Suivez les instructions. Certbot modifiera votre configuration Nginx pour activer le HTTPS.
-
-### 6. Finalisation
-- Rechargez Nginx pour appliquer toutes les modifications :
-  ```bash
-  sudo systemctl reload nginx
-  ```
-- Votre passerelle devrait maintenant être accessible et sécurisée à l'adresse `https://api.onlymatt.ca`. Vous pouvez tester avec `curl https://api.onlymatt.ca/settings -H "X-OM-KEY: change_me_super_secret"`.
+Deployed on Render at api.onlymatt.ca. Push changes to GitHub for auto-deploy.
