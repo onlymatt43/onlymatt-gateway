@@ -1,15 +1,24 @@
-import os, httpx, logging
-from typing import Optional
-from fastapi import FastAPI, Request, HTTPException, Header
+# ONLYMATT Gateway — prod-1.1 (Render)
+import os, time, logging, httpx
+from typing import Optional, Deque, Dict
+from collections import defaultdict, deque
+
+from fastapi import FastAPI, Request, HTTPException, Header, Body
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+# -------- Env --------
 OM_ADMIN_KEY = os.getenv("OM_ADMIN_KEY", "")
 AI_BACKEND   = os.getenv("AI_BACKEND", "")
 OLLAMA_URL   = os.getenv("OLLAMA_URL", "")
 
+TURSO_DB_URL  = os.getenv("TURSO_DB_URL", "")
+TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
+
+# -------- App --------
 logging.basicConfig(level=logging.INFO)
-app = FastAPI(title="ONLYMATT Gateway", version="prod-1.0")
+log = logging.getLogger("om-gateway")
+app = FastAPI(title="ONLYMATT Gateway", version="prod-1.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,13 +28,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/ai/health")
-async def ai_health():
-    return {"ok": True, "version": app.version, "ai_backend": bool(AI_BACKEND), "ollama": bool(OLLAMA_URL)}
+# -------- Simple rate-limit (in-memory) --------
+WINDOW_SEC = 60
+MAX_REQ_PER_WINDOW = 60
+_req_window: Dict[str, Deque[float]] = defaultdict(deque)
 
-@app.get("/healthz")
-async def healthz():
-    return {"ok": True}
+def rl(ip: str):
+    now = time.time()
+    dq = _req_window[ip]
+    while dq and dq[0] < now - WINDOW_SEC:
+        dq.popleft()
+    if len(dq) >= MAX_REQ_PER_WINDOW:
+        raise HTTPException(429, "Rate limit exceeded")
+    dq.append(now)
 
 def require_admin(key: Optional[str]):
     if not OM_ADMIN_KEY:
@@ -33,27 +48,121 @@ def require_admin(key: Optional[str]):
     if key != OM_ADMIN_KEY:
         raise HTTPException(401, "Bad key")
 
+# -------- Health/Admin --------
+@app.get("/ai/health")
+async def ai_health():
+    return {
+        "ok": True,
+        "version": app.version,
+        "ai_backend": bool(AI_BACKEND),
+        "ollama": bool(OLLAMA_URL),
+        "turso": bool(TURSO_DB_URL and TURSO_DB_AUTH),
+    }
+
+@app.get("/healthz")
+async def healthz():
+    return {"ok": True}
+
 @app.post("/ai/admin")
 async def ai_admin(x_om_key: Optional[str] = Header(None)):
     require_admin(x_om_key)
-    return {"ok": True, "version": app.version, "ai_backend": AI_BACKEND or None, "ollama_url": OLLAMA_URL or None}
+    return {
+        "ok": True,
+        "version": app.version,
+        "ai_backend": AI_BACKEND or None,
+        "ollama_url": OLLAMA_URL or None,
+        "turso": bool(TURSO_DB_URL and TURSO_DB_AUTH),
+    }
 
+# -------- Chat proxy --------
 @app.post("/ai/chat")
 async def ai_chat(request: Request):
+    rl(request.client.host)
     try:
         payload = await request.json()
     except Exception:
         raise HTTPException(400, "Bad JSON")
+
     target = OLLAMA_URL or AI_BACKEND
     if not target:
         raise HTTPException(502, "No AI backend configured")
+
     try:
-        async with httpx.AsyncClient(timeout=60) as hx:
+        timeout = httpx.Timeout(60.0, read=60.0, write=30.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as hx:
             r = await hx.post(target, json=payload)
-            ct = r.headers.get("content-type","")
+            ct = r.headers.get("content-type", "")
             data = r.json() if "application/json" in ct else {"raw": r.text}
             return JSONResponse(data, status_code=r.status_code)
     except httpx.ConnectError:
         raise HTTPException(502, "AI backend unreachable")
     except httpx.ReadTimeout:
         raise HTTPException(504, "AI backend timeout")
+
+# -------- Memory (Turso) --------
+try:
+    from libsql_client import create_client, DefaultTlsConfig
+    _db = None
+
+    def db():
+        global _db
+        if not TURSO_DB_URL or not TURSO_DB_AUTH:
+            raise HTTPException(500, "Turso not configured")
+        if _db is None:
+            _db = create_client(url=TURSO_DB_URL, auth_token=TURSO_DB_AUTH, tls=DefaultTlsConfig())
+        return _db
+
+    SCHEMA_SQL = """
+    CREATE TABLE IF NOT EXISTS memories (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      persona TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      confidence REAL DEFAULT 0.8,
+      ttl_days INTEGER DEFAULT 180,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_mem_user ON memories(user_id, persona, key);
+    """
+
+    @app.on_event("startup")
+    def init_schema():
+        if TURSO_DB_URL and TURSO_DB_AUTH:
+            db().execute_batch(SCHEMA_SQL)
+            log.info("Turso schema ready.")
+        else:
+            log.info("Turso not configured; memory routes will 500 if called.")
+except Exception as e:
+    log.warning(f"Turso client not available: {e}")
+    def db():
+        raise HTTPException(500, "libsql-client not installed")
+
+@app.post("/ai/memory/remember")
+async def memory_remember(request: Request, payload: dict = Body(...)):
+    rl(request.client.host)
+    for f in ["user_id", "persona", "key", "value"]:
+        if not payload.get(f):
+            raise HTTPException(400, f"{f} required")
+    mid = f"mem_{int(time.time()*1000)}_{int.from_bytes(os.urandom(3),'big')}"
+    db().execute(
+        "INSERT INTO memories(id,user_id,persona,key,value,confidence,ttl_days) VALUES(?,?,?,?,?,?,?)",
+        [
+            mid,
+            payload["user_id"], payload["persona"],
+            payload["key"], payload["value"],
+            float(payload.get("confidence", 0.8)),
+            int(payload.get("ttl_days", 180)),
+        ],
+    )
+    return {"ok": True, "id": mid}
+
+@app.get("/ai/memory/recall")
+async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 100):
+    rows = db().execute(
+        "SELECT key, value, confidence, created_at "
+        "FROM memories WHERE user_id=? AND persona=? "
+        "ORDER BY created_at DESC LIMIT ?",
+        [user_id, persona, limit],
+    ).rows
+    return {"ok": True, "memories": [dict(r) for r in rows]}
