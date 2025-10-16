@@ -212,14 +212,30 @@ async def memory_remember(request: Request, payload: dict = Body(...)):
 @app.get("/ai/memory/recall")
 async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 100):
     try:
-        dbc = await db()
-        res = await dbc.execute(
+        # bornage LIMIT et quoting ultra simple (doublage des quotes)
+        limit_int = max(1, min(int(limit), 500))
+        def q(s: str) -> str:
+            return s.replace("'", "''")
+
+        sql = (
             "SELECT key, value, confidence, created_at "
-            "FROM memories WHERE user_id=? AND persona=? "
-            "ORDER BY created_at DESC LIMIT ?",
-            [user_id, persona, limit],
+            f"FROM memories WHERE user_id='{q(user_id)}' AND persona='{q(persona)}' "
+            f"ORDER BY created_at DESC LIMIT {limit_int}"
         )
-        return JSONResponse({"ok": True, "memories": jsonable_encoder(res.rows)})
+
+        res = await db().execute(sql)  # <-- aucun paramètre passé au driver
+        out = []
+        for r in res.rows:
+            try:
+                out.append({
+                    "key": r["key"] if "key" in r else None,
+                    "value": r["value"] if "value" in r else None,
+                    "confidence": float(r["confidence"]) if "confidence" in r else None,
+                    "created_at": str(r["created_at"]) if "created_at" in r else None,
+                })
+            except Exception:
+                out.append({})
+        return {"ok": True, "memories": out}
     except Exception as e:
         logging.exception("recall failed")
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
