@@ -1,25 +1,22 @@
-# ONLYMATT Gateway — prod-1.2 (Render)
+# ONLYMATT Gateway — prod-1.3 (Render)
 import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
-
 from fastapi import FastAPI, Request, HTTPException, Header, Body
 from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
 # -------- Env --------
 OM_ADMIN_KEY = os.getenv("OM_ADMIN_KEY", "")
 AI_BACKEND   = os.getenv("AI_BACKEND", "")
 OLLAMA_URL   = os.getenv("OLLAMA_URL", "")
-
 TURSO_DB_URL  = os.getenv("TURSO_DB_URL", "")
 TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
 
 # -------- App --------
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
-app = FastAPI(title="ONLYMATT Gateway", version="prod-1.2")
+app = FastAPI(title="ONLYMATT Gateway", version="prod-1.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,7 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------- Simple rate-limit (in-memory) --------
+# -------- Rate-limit --------
 WINDOW_SEC = 60
 MAX_REQ_PER_WINDOW = 60
 _req_window: Dict[str, Deque[float]] = defaultdict(deque)
@@ -60,7 +57,6 @@ async def ai_health():
         "turso": bool(TURSO_DB_URL and TURSO_DB_AUTH),
     }
 
-# -------- LibSQL checks --------
 @app.get("/ai/libcheck")
 async def libcheck():
     try:
@@ -81,8 +77,8 @@ async def tursocheck():
             url = "https://" + url[len("libsql://"):]
         c = create_client(url=url, auth_token=tok)
         res = await c.execute("SELECT 1 AS ok")
-        row = res.rows[0]  # rows are already dict-like
-        return JSONResponse({"ok": True, "select1": jsonable_encoder(row)})
+        val = res.rows[0]["ok"] if res.rows and "ok" in res.rows[0] else 1
+        return {"ok": True, "select1": {"ok": int(val)}}
     except Exception as e:
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
 
@@ -109,11 +105,9 @@ async def ai_chat(request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(400, "Bad JSON")
-
     target = OLLAMA_URL or AI_BACKEND
     if not target:
         raise HTTPException(502, "No AI backend configured")
-
     try:
         timeout = httpx.Timeout(60.0, read=60.0, write=30.0, connect=10.0)
         async with httpx.AsyncClient(timeout=timeout) as hx:
@@ -132,7 +126,6 @@ try:
     _db = None
 
     def _normalize_turso_url(u: str) -> str:
-        # Avoid WebSocket (wss) and force HTTPS to dodge 505 from proxies
         return ("https://" + u[len("libsql://"):]) if u.startswith("libsql://") else u
 
     def db():
@@ -161,7 +154,7 @@ try:
     async def init_schema():
         if TURSO_DB_URL and TURSO_DB_AUTH:
             try:
-                await db().execute_batch(SCHEMA_SQL)  # async in libsql-client 0.3.x
+                await db().execute_batch(SCHEMA_SQL)
                 log.info("Turso schema ready.")
             except Exception as e:
                 log.warning(f"Turso init skipped: {e}")
@@ -176,7 +169,7 @@ try:
                 close_fn = getattr(_db, "close", None)
                 if callable(close_fn):
                     ret = close_fn()
-                    if hasattr(ret, "__await__"):  # async close
+                    if hasattr(ret, "__await__"):
                         await ret
                 _db = None
         except Exception:
@@ -219,7 +212,19 @@ async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 10
             "ORDER BY created_at DESC LIMIT ?",
             [user_id, persona, limit],
         )
-        return JSONResponse({"ok": True, "memories": jsonable_encoder(res.rows)})
+        out = []
+        for r in res.rows:
+            try:
+                item = {
+                    "key": r["key"] if "key" in r else None,
+                    "value": r["value"] if "value" in r else None,
+                    "confidence": float(r["confidence"]) if "confidence" in r else None,
+                    "created_at": str(r["created_at"]) if "created_at" in r else None,
+                }
+            except Exception:
+                item = {}
+            out.append(item)
+        return {"ok": True, "memories": out}
     except Exception as e:
         logging.exception("recall failed")
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
