@@ -76,6 +76,8 @@ async def tursocheck():
         tok = os.getenv("TURSO_DB_AUTH_TOKEN","")
         if not url or not tok:
             return {"ok": False, "err": "Missing env", "url": bool(url), "token": bool(tok)}
+        if url.startswith("libsql://"):
+            url = "https://" + url[len("libsql://"):]
         c = create_client(url=url, auth_token=tok)
         res = await c.execute("SELECT 1 AS ok")
         row = res.rows[0]
@@ -130,12 +132,16 @@ try:
     from libsql_client import create_client
     _db = None
 
+    def _normalize_turso_url(u: str) -> str:
+        # Avoid WebSocket (wss) and force HTTPS to dodge 505 from proxies
+        return ("https://" + u[len("libsql://"):]) if u.startswith("libsql://") else u
+
     def db():
         global _db
         if not TURSO_DB_URL or not TURSO_DB_AUTH:
             raise HTTPException(500, "Turso not configured")
         if _db is None:
-            _db = create_client(url=TURSO_DB_URL, auth_token=TURSO_DB_AUTH)
+            _db = create_client(url=_normalize_turso_url(TURSO_DB_URL), auth_token=TURSO_DB_AUTH)
         return _db
 
     SCHEMA_SQL = """
