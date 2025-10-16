@@ -1,4 +1,4 @@
-# ONLYMATT Gateway — prod-1.5 (Render, libsql-client 0.3.x stable)
+# ONLYMATT Gateway — prod-1.6 (Render, libsql-client 0.3.x stable)
 import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
@@ -16,7 +16,7 @@ TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
 # ---------- App ----------
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
-app = FastAPI(title="ONLYMATT Gateway", version="prod-1.5")
+app = FastAPI(title="ONLYMATT Gateway", version="prod-1.6")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------- Health endpoints (pour Render) ----------
+# ---------- Health endpoints ----------
 @app.get("/")
 async def root():
     return {"ok": True, "service": "ONLYMATT Gateway"}
@@ -39,7 +39,7 @@ async def health():
 async def healthz():
     return {"ok": True}
 
-# ---------- Rate-limit (mémoire) ----------
+# ---------- Rate-limit ----------
 WINDOW_SEC = 60
 MAX_REQ_PER_WINDOW = 60
 _req_window: Dict[str, Deque[float]] = defaultdict(deque)
@@ -90,7 +90,6 @@ async def tursocheck():
             url = "https://" + url[len("libsql://"):]
         c = create_client(url=url, auth_token=tok)
         res = await c.execute("SELECT 1 AS ok")
-        # extraction robuste (dict-like / tuple / objet)
         row = res.rows[0] if res.rows else None
         if row is None:
             return {"ok": False, "err": "no rows"}
@@ -176,8 +175,7 @@ try:
         if TURSO_DB_URL and TURSO_DB_AUTH:
             try:
                 conn = db()
-                # pas de execute_batch en 0.3.x → on fait un par un
-                for stmt in SCHEMA_SQL:
+                for stmt in SCHEMA_SQL:              # pas d'execute_batch en 0.3.x
                     s = stmt.strip().rstrip(";")
                     if s:
                         await conn.execute(s)
@@ -241,29 +239,48 @@ async def memory_remember(request: Request, payload: dict = Body(...)):
 @app.get("/ai/memory/recall")
 async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 100):
     try:
-        # bornage LIMIT et quoting simple (doublage des quotes) pour éviter le bug 'result'
+        # bornage LIMIT & quoting simple (bypass bug 'result')
         limit_int = max(1, min(int(limit), 500))
+
         def q(s: str) -> str:
             return s.replace("'", "''")
 
+        # aliases stables pour extraction robuste
         sql = (
-            "SELECT key, value, confidence, created_at "
+            "SELECT key  AS k, "
+            "       value AS v, "
+            "       confidence AS c, "
+            "       created_at AS t "
             f"FROM memories WHERE user_id='{q(user_id)}' AND persona='{q(persona)}' "
             f"ORDER BY created_at DESC LIMIT {limit_int}"
         )
 
-        res = await db().execute(sql)  # pas de paramètres → on évite le chemin buggé
+        res = await db().execute(sql)
+
+        def pick(row, name, idx):
+            try:
+                if isinstance(row, dict):
+                    return row.get(name)
+                try:
+                    return row[name]      # mapping-like
+                except Exception:
+                    return row[idx]       # tuple/list-like
+            except Exception:
+                return None
+
         out = []
         for r in res.rows:
-            try:
-                out.append({
-                    "key": r["key"] if "key" in r else None,
-                    "value": r["value"] if "value" in r else None,
-                    "confidence": float(r["confidence"]) if "confidence" in r else None,
-                    "created_at": str(r["created_at"]) if "created_at" in r else None,
-                })
-            except Exception:
-                out.append({})
+            k = pick(r, "k", 0)
+            v = pick(r, "v", 1)
+            c = pick(r, "c", 2)
+            t = pick(r, "t", 3)
+            out.append({
+                "key": k,
+                "value": v,
+                "confidence": (float(c) if c is not None else None),
+                "created_at": (str(t) if t is not None else None),
+            })
+
         return {"ok": True, "memories": out}
     except Exception as e:
         logging.exception("recall failed")
