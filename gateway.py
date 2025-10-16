@@ -80,8 +80,8 @@ async def tursocheck():
             url = "https://" + url[len("libsql://"):]
         c = create_client(url=url, auth_token=tok)
         res = await c.execute("SELECT 1 AS ok")
-        row = res.rows[0]
-        return {"ok": True, "select1": dict(row)}
+        row = res.rows[0]          # déjà dict-like
+        return {"ok": True, "select1": row}  # <- pas de dict(row)
     except Exception as e:
         return {"ok": False, "err": str(e)}
 
@@ -222,8 +222,8 @@ async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 10
             "ORDER BY created_at DESC LIMIT ?",
             [user_id, persona, limit],
         )
-        rows = res.rows
-        return {"ok": True, "memories": [dict(r) for r in rows]}
+        rows = res.rows  # déjà une liste de dicts
+        return {"ok": True, "memories": rows}
     except Exception as e:
         logging.exception("recall failed")
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
