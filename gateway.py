@@ -71,12 +71,12 @@ async def libcheck():
 @app.get("/ai/tursocheck")
 async def tursocheck():
     try:
-        from libsql_client import create_client, DefaultTlsConfig
+        from libsql_client import create_client
         url = os.getenv("TURSO_DB_URL","")
         tok = os.getenv("TURSO_DB_AUTH_TOKEN","")
         if not url or not tok:
             return {"ok": False, "err": "Missing env", "url": bool(url), "token": bool(tok)}
-        c = create_client(url=url, auth_token=tok, tls=DefaultTlsConfig())
+        c = create_client(url=url, auth_token=tok)
         row = c.execute("SELECT 1 AS ok").rows[0]
         return {"ok": True, "select1": dict(row)}
     except Exception as e:
@@ -124,7 +124,7 @@ async def ai_chat(request: Request):
 
 # -------- Memory (Turso) --------
 try:
-    from libsql_client import create_client, DefaultTlsConfig
+    from libsql_client import create_client
     _db = None
 
     def db():
@@ -132,7 +132,7 @@ try:
         if not TURSO_DB_URL or not TURSO_DB_AUTH:
             raise HTTPException(500, "Turso not configured")
         if _db is None:
-            _db = create_client(url=TURSO_DB_URL, auth_token=TURSO_DB_AUTH, tls=DefaultTlsConfig())
+            _db = create_client(url=TURSO_DB_URL, auth_token=TURSO_DB_AUTH)
         return _db
 
     SCHEMA_SQL = """
