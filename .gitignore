@@ -1,47 +1,5 @@
-# === ONLYMATT Gateway Git Ignore ===
-
-# Environnements & secrets
-.env
-.env.*
-*.key
-*.pem
-*.crt
-
-# Python cache & build
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.egg-info/
-dist/
-build/
-*.log
-
-# Virtualenv
 .venv/
-venv/
-env/
-
-# IDE / OS files
+__pycache__/
+*.pyc
+.env
 .DS_Store
-.idea/
-.vscode/
-*.swp
-
-# Local scripts & notes
-gateway.log
-run_gateway.sh
-*.bak
-*.tmp
-*.local
-*.cache
-
-# Docs non publiques
-ONLYMATT_GATEWAY_DEV_GUIDE.pdf
-README_DEV.md
-
-# Render / ngrok / host data
-*.ngrok
-ngrok.yml
-*.sock
-*.pid
