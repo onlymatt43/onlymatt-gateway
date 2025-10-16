@@ -1,8 +1,8 @@
-# ONLYMATT Gateway — prod-1.3 (Render)
+# ONLYMATT Gateway — prod-1.4 (Render, stable)
 import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
-from fastapi import FastAPI, Request, HTTPException, Header, Body
+from fastapi import FastAPI, Request, HTTPException, Body, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,7 +16,7 @@ TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
 # -------- App --------
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
-app = FastAPI(title="ONLYMATT Gateway", version="prod-1.3")
+app = FastAPI(title="ONLYMATT Gateway", version="prod-1.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,12 +39,6 @@ def rl(ip: str):
     if len(dq) >= MAX_REQ_PER_WINDOW:
         raise HTTPException(429, "Rate limit exceeded")
     dq.append(now)
-
-def require_admin(key: Optional[str]):
-    if not OM_ADMIN_KEY:
-        raise HTTPException(500, "OM_ADMIN_KEY not set")
-    if key != OM_ADMIN_KEY:
-        raise HTTPException(401, "Bad key")
 
 # -------- Health/Admin --------
 @app.get("/ai/health")
@@ -69,8 +63,8 @@ async def libcheck():
 async def tursocheck():
     try:
         from libsql_client import create_client
-        url = os.getenv("TURSO_DB_URL", "")
-        tok = os.getenv("TURSO_DB_AUTH_TOKEN", "")
+        url = os.getenv("TURSO_DB_URL","")
+        tok = os.getenv("TURSO_DB_AUTH_TOKEN","")
         if not url or not tok:
             return {"ok": False, "err": "Missing env", "url": bool(url), "token": bool(tok)}
         if url.startswith("libsql://"):
@@ -81,21 +75,6 @@ async def tursocheck():
         return {"ok": True, "select1": {"ok": int(val)}}
     except Exception as e:
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
-
-@app.get("/healthz")
-async def healthz():
-    return {"ok": True}
-
-@app.post("/ai/admin")
-async def ai_admin(x_om_key: Optional[str] = Header(None)):
-    require_admin(x_om_key)
-    return {
-        "ok": True,
-        "version": app.version,
-        "ai_backend": AI_BACKEND or None,
-        "ollama_url": OLLAMA_URL or None,
-        "turso": bool(TURSO_DB_URL and TURSO_DB_AUTH),
-    }
 
 # -------- Chat proxy --------
 @app.post("/ai/chat")
@@ -158,8 +137,6 @@ try:
                 log.info("Turso schema ready.")
             except Exception as e:
                 log.warning(f"Turso init skipped: {e}")
-        else:
-            log.info("Turso not configured; memory routes will 500 if called.")
 
     @app.on_event("shutdown")
     async def close_db():
@@ -180,50 +157,49 @@ except Exception as e:
     def db():
         raise HTTPException(500, "libsql-client not installed")
 
+# -------- Memory endpoints --------
 @app.post("/ai/memory/remember")
 async def memory_remember(request: Request, payload: dict = Body(...)):
     rl(request.client.host)
-    for f in ["user_id", "persona", "key", "value"]:
+    for f in ["user_id","persona","key","value"]:
         if not payload.get(f):
             raise HTTPException(400, f"{f} required")
     mid = f"mem_{int(time.time()*1000)}_{int.from_bytes(os.urandom(3),'big')}"
     try:
-        await db().execute(
-            "INSERT INTO memories(id,user_id,persona,key,value,confidence,ttl_days) VALUES(?,?,?,?,?,?,?)",
-            [
-                mid,
-                payload["user_id"], payload["persona"],
-                payload["key"], payload["value"],
-                float(payload.get("confidence", 0.8)),
-                int(payload.get("ttl_days", 180)),
-            ],
-        )
+        sql = ("INSERT INTO memories("
+               "id,user_id,persona,key,value,confidence,ttl_days)"
+               " VALUES(:id,:user_id,:persona,:key,:value,:confidence,:ttl_days)")
+        params = {
+            "id": mid,
+            "user_id": payload["user_id"],
+            "persona": payload["persona"],
+            "key": payload["key"],
+            "value": payload["value"],
+            "confidence": float(payload.get("confidence",0.8)),
+            "ttl_days": int(payload.get("ttl_days",180)),
+        }
+        await db().execute(sql, params)
         return {"ok": True, "id": mid}
     except Exception as e:
         logging.exception("remember failed")
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
 
 @app.get("/ai/memory/recall")
-async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 100):
+async def memory_recall(user_id: str, persona: str="coach_v1", limit: int=100):
     try:
-        res = await db().execute(
-            "SELECT key, value, confidence, created_at "
-            "FROM memories WHERE user_id=? AND persona=? "
-            "ORDER BY created_at DESC LIMIT ?",
-            [user_id, persona, limit],
-        )
-        out = []
+        sql = ("SELECT key,value,confidence,created_at "
+               "FROM memories WHERE user_id=:user_id AND persona=:persona "
+               "ORDER BY created_at DESC LIMIT :limit")
+        params = {"user_id": user_id, "persona": persona, "limit": int(limit)}
+        res = await db().execute(sql, params)
+        out=[]
         for r in res.rows:
-            try:
-                item = {
-                    "key": r["key"] if "key" in r else None,
-                    "value": r["value"] if "value" in r else None,
-                    "confidence": float(r["confidence"]) if "confidence" in r else None,
-                    "created_at": str(r["created_at"]) if "created_at" in r else None,
-                }
-            except Exception:
-                item = {}
-            out.append(item)
+            out.append({
+                "key": r.get("key"),
+                "value": r.get("value"),
+                "confidence": float(r.get("confidence",0)),
+                "created_at": str(r.get("created_at")),
+            })
         return {"ok": True, "memories": out}
     except Exception as e:
         logging.exception("recall failed")
