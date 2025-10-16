@@ -76,8 +76,9 @@ async def tursocheck():
         tok = os.getenv("TURSO_DB_AUTH_TOKEN","")
         if not url or not tok:
             return {"ok": False, "err": "Missing env", "url": bool(url), "token": bool(tok)}
-        c = create_client(url=url, auth_token=tok)  # no DefaultTlsConfig with 0.3.x
-        row = c.execute("SELECT 1 AS ok").rows[0]
+        c = create_client(url=url, auth_token=tok)
+        res = await c.execute("SELECT 1 AS ok")
+        row = res.rows[0]
         return {"ok": True, "select1": dict(row)}
     except Exception as e:
         return {"ok": False, "err": str(e)}
@@ -152,10 +153,11 @@ try:
     """
 
     @app.on_event("startup")
-    def init_schema():
+    @app.on_event("startup")
+    async def init_schema():
         if TURSO_DB_URL and TURSO_DB_AUTH:
             try:
-                db().execute_batch(SCHEMA_SQL)
+                await db().execute_batch(SCHEMA_SQL)
                 log.info("Turso schema ready.")
             except Exception as e:
                 log.warning(f"Turso init skipped: {e}")
@@ -163,11 +165,16 @@ try:
             log.info("Turso not configured; memory routes will 500 if called.")
 
     @app.on_event("shutdown")
-    def close_db():
+    @app.on_event("shutdown")
+    async def close_db():
         global _db
         try:
             if _db is not None:
-                _db.close()
+                close_fn = getattr(_db, "close", None)
+                if callable(close_fn):
+                    ret = close_fn()
+                    if hasattr(ret, "__await__"):
+                        await ret
                 _db = None
         except Exception:
             pass
@@ -185,7 +192,7 @@ async def memory_remember(request: Request, payload: dict = Body(...)):
             raise HTTPException(400, f"{f} required")
     mid = f"mem_{int(time.time()*1000)}_{int.from_bytes(os.urandom(3),'big')}"
     try:
-        db().execute(
+        await db().execute(
             "INSERT INTO memories(id,user_id,persona,key,value,confidence,ttl_days) VALUES(?,?,?,?,?,?,?)",
             [
                 mid,
@@ -203,12 +210,13 @@ async def memory_remember(request: Request, payload: dict = Body(...)):
 @app.get("/ai/memory/recall")
 async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 100):
     try:
-        rows = db().execute(
+        res = await db().execute(
             "SELECT key, value, confidence, created_at "
             "FROM memories WHERE user_id=? AND persona=? "
             "ORDER BY created_at DESC LIMIT ?",
             [user_id, persona, limit],
-        ).rows
+        )
+        rows = res.rows
         return {"ok": True, "memories": [dict(r) for r in rows]}
     except Exception as e:
         logging.exception("recall failed")
