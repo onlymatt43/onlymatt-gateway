@@ -1,10 +1,11 @@
-# ONLYMATT Gateway — prod-1.1 (Render)
+# ONLYMATT Gateway — prod-1.2 (Render)
 import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
 
 from fastapi import FastAPI, Request, HTTPException, Header, Body
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
 # -------- Env --------
@@ -18,7 +19,7 @@ TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
 # -------- App --------
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
-app = FastAPI(title="ONLYMATT Gateway", version="prod-1.1")
+app = FastAPI(title="ONLYMATT Gateway", version="prod-1.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -72,18 +73,18 @@ async def libcheck():
 async def tursocheck():
     try:
         from libsql_client import create_client
-        url = os.getenv("TURSO_DB_URL","")
-        tok = os.getenv("TURSO_DB_AUTH_TOKEN","")
+        url = os.getenv("TURSO_DB_URL", "")
+        tok = os.getenv("TURSO_DB_AUTH_TOKEN", "")
         if not url or not tok:
             return {"ok": False, "err": "Missing env", "url": bool(url), "token": bool(tok)}
         if url.startswith("libsql://"):
             url = "https://" + url[len("libsql://"):]
         c = create_client(url=url, auth_token=tok)
         res = await c.execute("SELECT 1 AS ok")
-        row = res.rows[0]          # déjà dict-like
-        return {"ok": True, "select1": row}  # <- pas de dict(row)
+        row = res.rows[0]  # rows are already dict-like
+        return JSONResponse({"ok": True, "select1": jsonable_encoder(row)})
     except Exception as e:
-        return {"ok": False, "err": str(e)}
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
 
 @app.get("/healthz")
 async def healthz():
@@ -126,8 +127,6 @@ async def ai_chat(request: Request):
         raise HTTPException(504, "AI backend timeout")
 
 # -------- Memory (Turso) --------
-
-# -------- Memory (Turso) --------
 try:
     from libsql_client import create_client
     _db = None
@@ -159,18 +158,16 @@ try:
     """
 
     @app.on_event("startup")
-    @app.on_event("startup")
     async def init_schema():
         if TURSO_DB_URL and TURSO_DB_AUTH:
             try:
-                await db().execute_batch(SCHEMA_SQL)
+                await db().execute_batch(SCHEMA_SQL)  # async in libsql-client 0.3.x
                 log.info("Turso schema ready.")
             except Exception as e:
                 log.warning(f"Turso init skipped: {e}")
         else:
             log.info("Turso not configured; memory routes will 500 if called.")
 
-    @app.on_event("shutdown")
     @app.on_event("shutdown")
     async def close_db():
         global _db
@@ -179,7 +176,7 @@ try:
                 close_fn = getattr(_db, "close", None)
                 if callable(close_fn):
                     ret = close_fn()
-                    if hasattr(ret, "__await__"):
+                    if hasattr(ret, "__await__"):  # async close
                         await ret
                 _db = None
         except Exception:
@@ -222,8 +219,7 @@ async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 10
             "ORDER BY created_at DESC LIMIT ?",
             [user_id, persona, limit],
         )
-        rows = res.rows  # déjà une liste de dicts
-        return {"ok": True, "memories": rows}
+        return JSONResponse({"ok": True, "memories": jsonable_encoder(res.rows)})
     except Exception as e:
         logging.exception("recall failed")
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
