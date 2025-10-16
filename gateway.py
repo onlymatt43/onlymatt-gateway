@@ -59,6 +59,29 @@ async def ai_health():
         "turso": bool(TURSO_DB_URL and TURSO_DB_AUTH),
     }
 
+# -------- LibSQL checks --------
+@app.get("/ai/libcheck")
+async def libcheck():
+    try:
+        import libsql_client as L
+        return {"ok": True, "lib": "libsql-client", "version": getattr(L, "__version__", "?")}
+    except Exception as e:
+        return {"ok": False, "err": str(e)}
+
+@app.get("/ai/tursocheck")
+async def tursocheck():
+    try:
+        from libsql_client import create_client, DefaultTlsConfig
+        url = os.getenv("TURSO_DB_URL","")
+        tok = os.getenv("TURSO_DB_AUTH_TOKEN","")
+        if not url or not tok:
+            return {"ok": False, "err": "Missing env", "url": bool(url), "token": bool(tok)}
+        c = create_client(url=url, auth_token=tok, tls=DefaultTlsConfig())
+        row = c.execute("SELECT 1 AS ok").rows[0]
+        return {"ok": True, "select1": dict(row)}
+    except Exception as e:
+        return {"ok": False, "err": str(e)}
+
 @app.get("/healthz")
 async def healthz():
     return {"ok": True}

@@ -1,7 +1,5 @@
-cat > requirements.txt <<'EOF'
 fastapi
 uvicorn
 httpx
 python-dotenv
 libsql-client==0.3.3
-EOF
