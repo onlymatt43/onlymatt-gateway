@@ -25,6 +25,14 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
 app = FastAPI(title="ONLYMATT Gateway", version="prod-1.6")
 
+# Templates
+from fastapi.templating import Jinja2Templates
+templates = Jinja2Templates(directory="templates")
+
+# Static files
+from fastapi.staticfiles import StaticFiles
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"https?://([a-z0-9.-]+\.)?(onlymatt\.ca|om43\.com|ai\.onlymatt\.ca|video\.onlymatt\.ca|localhost)(:\d+)?$",
@@ -315,3 +323,30 @@ async def list_files(path: str = ".", recursive: bool = False, x_om_key: Optiona
         return {"ok": True, "path": str(p), "files": files}
     except Exception as e:
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+# ---------- Admin Interface ----------
+from fastapi import Form
+
+@app.get("/admin")
+async def admin_home(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request})
+
+@app.get("/admin/chat")
+async def admin_chat(request: Request):
+    return templates.TemplateResponse("chat.html", {"request": request})
+
+@app.get("/admin/educate")
+async def admin_educate(request: Request):
+    return templates.TemplateResponse("educate.html", {"request": request})
+
+@app.get("/admin/tasks")
+async def admin_tasks(request: Request):
+    return templates.TemplateResponse("tasks.html", {"request": request})
+
+@app.get("/admin/reports")
+async def admin_reports(request: Request):
+    return templates.TemplateResponse("reports.html", {"request": request})
+
+@app.get("/admin/analysis")
+async def admin_analysis(request: Request):
+    return templates.TemplateResponse("analysis.html", {"request": request})
