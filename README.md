@@ -77,3 +77,32 @@ python test.py
 ```
 Site web (om43.com) → API (api.om43.com) → Groq AI → Turso DB
 ```
+
+## 🗂️ Gestion des fichiers
+
+L'AI peut analyser et publier automatiquement vos fichiers desktop vers votre site web.
+
+### Lister les fichiers desktop
+
+```bash
+curl "https://api.om43.com/ai/files/list?path=/Users/ton-nom/Desktop"
+```
+
+### Uploader et analyser un fichier
+
+```bash
+curl -X POST https://api.om43.com/ai/files/upload \
+  -H "x-om-key: ta-cle-admin" \
+  -F "file=@/chemin/vers/ton/fichier.txt" \
+  -F "auto_publish=true" \
+  -F "wordpress_url=https://om43.com" \
+  -F "wordpress_user=ton-user" \
+  -F "wordpress_password=ton-mdp"
+```
+
+### Lister les fichiers uploadés
+
+```bash
+curl https://api.om43.com/ai/files/uploads \
+  -H "x-om-key: ta-cle-admin"
+```

@@ -2,7 +2,7 @@
 import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
-from fastapi import FastAPI, Request, HTTPException, Body, Header, Response
+from fastapi import FastAPI, Request, HTTPException, Body, Header, Response, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -397,6 +397,179 @@ async def list_files(path: str = ".", recursive: bool = False, x_om_key: Optiona
         else:
             files = [f.name for f in p.iterdir() if f.is_file()]
         return {"ok": True, "path": str(p), "files": files}
+    except Exception as e:
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+# ---------- File upload and sync endpoints ----------
+import aiofiles
+import mimetypes
+
+UPLOAD_DIR = Path("./uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+@app.post("/ai/files/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    x_om_key: Optional[str] = Header(None),
+    auto_publish: bool = Form(False),
+    wordpress_url: Optional[str] = Form(None),
+    wordpress_user: Optional[str] = Form(None),
+    wordpress_password: Optional[str] = Form(None)
+):
+    require_admin(x_om_key)
+    
+    try:
+        # Validate file
+        if not file.filename:
+            raise HTTPException(400, "No file provided")
+        
+        # Generate unique filename
+        timestamp = int(time.time())
+        file_ext = Path(file.filename).suffix
+        unique_filename = f"{timestamp}_{int.from_bytes(os.urandom(4), 'big'):08x}{file_ext}"
+        file_path = UPLOAD_DIR / unique_filename
+        
+        # Save file
+        async with aiofiles.open(file_path, 'wb') as f:
+            content = await file.read()
+            await f.write(content)
+        
+        file_info = {
+            "original_name": file.filename,
+            "saved_name": unique_filename,
+            "size": len(content),
+            "mime_type": file.content_type or mimetypes.guess_type(file.filename)[0],
+            "path": str(file_path)
+        }
+        
+        # Auto-publish to WordPress if requested
+        if auto_publish and wordpress_url and wordpress_user and wordpress_password:
+            try:
+                publish_result = await publish_to_wordpress(
+                    file_info, content, wordpress_url, wordpress_user, wordpress_password
+                )
+                file_info["wordpress_publish"] = publish_result
+            except Exception as e:
+                file_info["wordpress_error"] = str(e)
+        
+        # Analyze file content with AI
+        try:
+            analysis = await analyze_file_content(file_info, content)
+            file_info["ai_analysis"] = analysis
+        except Exception as e:
+            file_info["analysis_error"] = str(e)
+        
+        return {"ok": True, "file": file_info}
+        
+    except Exception as e:
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+async def analyze_file_content(file_info: dict, content: bytes) -> dict:
+    """Analyze file content using Groq AI"""
+    if not GROQ_API_KEY:
+        return {"error": "No AI backend configured"}
+    
+    # Prepare content preview (limit size)
+    content_preview = content[:4000].decode('utf-8', errors='ignore')
+    if len(content) > 4000:
+        content_preview += "... (truncated)"
+    
+    analysis_prompt = f"""
+    Analyze this file and provide:
+    1. File type and purpose
+    2. Key content summary
+    3. Suggested actions (publish, archive, process)
+    4. SEO optimization suggestions if applicable
+    
+    File: {file_info['original_name']}
+    Size: {file_info['size']} bytes
+    Type: {file_info['mime_type']}
+    
+    Content preview:
+    {content_preview}
+    """
+    
+    try:
+        timeout = httpx.Timeout(30.0, read=30.0, write=10.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as hx:
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama3-8b-8192",
+                "messages": [{"role": "user", "content": analysis_prompt}],
+                "temperature": 0.3,
+                "max_tokens": 1000
+            }
+            r = await hx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers)
+            if r.status_code == 200:
+                response = r.json()
+                return {
+                    "analysis": response["choices"][0]["message"]["content"],
+                    "model": response["model"]
+                }
+            else:
+                return {"error": f"AI analysis failed: {r.text}"}
+    except Exception as e:
+        return {"error": f"AI analysis error: {str(e)}"}
+
+async def publish_to_wordpress(file_info: dict, content: bytes, wp_url: str, wp_user: str, wp_password: str) -> dict:
+    """Publish file content to WordPress"""
+    try:
+        # Prepare WordPress REST API call
+        api_url = f"{wp_url}/wp-json/wp/v2/posts"
+        
+        # Create post content based on file type
+        if file_info['mime_type'] and file_info['mime_type'].startswith('text/'):
+            post_content = content.decode('utf-8', errors='ignore')
+            post_title = Path(file_info['original_name']).stem
+        else:
+            post_content = f"[Fichier uploadé: {file_info['original_name']}]"
+            post_title = f"Fichier: {file_info['original_name']}"
+        
+        post_data = {
+            "title": post_title,
+            "content": post_content,
+            "status": "draft",  # Publish as draft first
+            "categories": [1],  # Default category
+            "tags": ["ai-upload", "onlymatt"]
+        }
+        
+        # Make API call
+        auth = (wp_user, wp_password)
+        async with httpx.AsyncClient() as client:
+            r = await client.post(api_url, json=post_data, auth=auth)
+            if r.status_code in [200, 201]:
+                post_data = r.json()
+                return {
+                    "success": True,
+                    "post_id": post_data.get("id"),
+                    "post_url": post_data.get("link"),
+                    "status": "draft"
+                }
+            else:
+                return {"error": f"WordPress API error: {r.text}"}
+                
+    except Exception as e:
+        return {"error": f"WordPress publish error: {str(e)}"}
+
+@app.get("/ai/files/uploads")
+async def list_uploads(x_om_key: Optional[str] = Header(None)):
+    """List uploaded files"""
+    require_admin(x_om_key)
+    try:
+        files = []
+        for f in UPLOAD_DIR.glob("*"):
+            if f.is_file():
+                stat = f.stat()
+                files.append({
+                    "name": f.name,
+                    "size": stat.st_size,
+                    "modified": stat.st_mtime,
+                    "path": str(f)
+                })
+        return {"ok": True, "files": files}
     except Exception as e:
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
 
