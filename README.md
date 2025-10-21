@@ -21,12 +21,17 @@ Gateway API pour l'assistant AI, déployé sur Render avec Turso et Cloudflare.
 
 ### 3. Cloudflare
 - Ajoutez le domaine om43.com à Cloudflare
-- Configurez le DNS :
+- Configurez le DNS pour le sous-domaine API :
   - Type: CNAME
-  - Name: @
+  - Name: api
   - Target: [votre-app].onrender.com
   - Proxy: Activé
-- Dans Render, ajoutez le domaine personnalisé om43.com
+- Dans Render, ajoutez le domaine personnalisé api.om43.com
+
+### 4. Architecture finale
+- `om43.com` → Votre site web principal
+- `api.om43.com` → OnlyMatt Gateway API (Render)
+- `www.api.om43.com` → Redirection vers api.om43.com
 
 ### 4. Test
 - Vérifiez `/health` pour la santé
@@ -37,7 +42,7 @@ Gateway API pour l'assistant AI, déployé sur Render avec Turso et Cloudflare.
 
 ### Problèmes courants
 - **Turso connection failed**: Vérifiez TURSO_DB_URL et TURSO_DB_AUTH_TOKEN. L'URL doit être au format `libsql://` ou `https://`.
-- **Domain not working**: Assurez-vous que le CNAME pointe vers [app].onrender.com et que le proxy Cloudflare est activé.
+- **Domain not working**: Assurez-vous que le CNAME pour `api` pointe vers [app].onrender.com et que le proxy Cloudflare est activé.
 - **CORS errors**: Le domaine doit être dans la liste CORS (onlymatt.ca, om43.com, etc.).
 - **Rate limit**: L'API a un rate limit de 60 req/min par IP.
 
@@ -58,8 +63,17 @@ uvicorn gateway:app --reload
 python test.py
 ```
 
-## Fonctionnalités
-- Proxy AI chat
-- Stockage mémoire dans Turso
-- Rate limiting
-- CORS pour onlymatt.ca, om43.com, etc.
+## 🏗️ Architecture
+
+### Domaines et sous-domaines
+
+| Domaine | Usage | Hébergement |
+|---------|-------|-------------|
+| `om43.com` | Site web principal | Votre hébergement (WordPress, etc.) |
+| `api.om43.com` | OnlyMatt Gateway API | Render |
+| `www.api.om43.com` | Redirection API | Render |
+
+### Flux de données
+```
+Site web (om43.com) → API (api.om43.com) → Groq AI → Turso DB
+```
