@@ -78,31 +78,40 @@ python test.py
 Site web (om43.com) → API (api.om43.com) → Groq AI → Turso DB
 ```
 
-## 🗂️ Gestion des fichiers
+## 🌐 Génération de sites web
 
-L'AI peut analyser et publier automatiquement vos fichiers desktop vers votre site web.
+L'AI peut analyser des sites web de référence et générer des sites web personnalisés.
 
-### Lister les fichiers desktop
-
-```bash
-curl "https://api.om43.com/ai/files/list?path=/Users/ton-nom/Desktop"
-```
-
-### Uploader et analyser un fichier
+### Analyser un site web de référence
 
 ```bash
-curl -X POST https://api.om43.com/ai/files/upload \
+curl -X POST https://api.om43.com/ai/website/analyze \
   -H "x-om-key: ta-cle-admin" \
-  -F "file=@/chemin/vers/ton/fichier.txt" \
-  -F "auto_publish=true" \
-  -F "wordpress_url=https://om43.com" \
-  -F "wordpress_user=ton-user" \
-  -F "wordpress_password=ton-mdp"
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.example.com"}'
 ```
 
-### Lister les fichiers uploadés
+### Générer un site web complet
 
 ```bash
-curl https://api.om43.com/ai/files/uploads \
-  -H "x-om-key: ta-cle-admin"
+curl -X POST https://api.om43.com/ai/website/generate \
+  -H "x-om-key: ta-cle-admin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "site_data": {
+      "name": "Ma Société",
+      "industry": "technology",
+      "description": "Solutions innovantes",
+      "services": ["Web", "Mobile", "IA"],
+      "contact": {"email": "contact@site.com"}
+    },
+    "references": ["https://site1.com", "https://site2.com"],
+    "template": "modern",
+    "target_platform": "wordpress",
+    "wordpress_config": {
+      "url": "https://mon-site.com",
+      "username": "admin",
+      "password": "motdepasse"
+    }
+  }'
 ```

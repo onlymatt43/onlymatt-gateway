@@ -403,6 +403,8 @@ async def list_files(path: str = ".", recursive: bool = False, x_om_key: Optiona
 # ---------- File upload and sync endpoints ----------
 import aiofiles
 import mimetypes
+from bs4 import BeautifulSoup
+import json
 
 UPLOAD_DIR = Path("./uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -572,6 +574,405 @@ async def list_uploads(x_om_key: Optional[str] = Header(None)):
         return {"ok": True, "files": files}
     except Exception as e:
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+# ---------- Website analysis and generation endpoints ----------
+@app.post("/ai/website/analyze")
+async def analyze_website(request: Request, x_om_key: Optional[str] = Header(None)):
+    """Analyze a reference website for design and content inspiration"""
+    require_admin(x_om_key)
+    
+    try:
+        payload = await request.json()
+        url = payload.get("url")
+        
+        if not url:
+            raise HTTPException(400, "URL is required")
+        
+        # Fetch website content
+        timeout = httpx.Timeout(30.0, read=30.0, write=10.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url)
+            html_content = response.text
+        
+        # Parse with BeautifulSoup
+        soup = BeautifulSoup(html_content, 'lxml')
+        
+        # Extract key elements
+        analysis = {
+            "url": url,
+            "title": soup.title.string if soup.title else "No title",
+            "meta_description": "",
+            "headings": [],
+            "images": [],
+            "colors": [],
+            "structure": {},
+            "content_type": "unknown"
+        }
+        
+        # Meta description
+        meta_desc = soup.find("meta", attrs={"name": "description"})
+        if meta_desc:
+            analysis["meta_description"] = meta_desc.get("content", "")
+        
+        # Headings
+        for i in range(1, 7):
+            headings = soup.find_all(f"h{i}")
+            if headings:
+                analysis["headings"].append({
+                    "level": i,
+                    "count": len(headings),
+                    "texts": [h.get_text().strip()[:100] for h in headings[:5]]  # First 5 headings
+                })
+        
+        # Images
+        images = soup.find_all("img")
+        analysis["images"] = [
+            {
+                "src": img.get("src", ""),
+                "alt": img.get("alt", ""),
+                "width": img.get("width"),
+                "height": img.get("height")
+            } for img in images[:10]  # First 10 images
+        ]
+        
+        # Basic structure analysis
+        analysis["structure"] = {
+            "has_header": bool(soup.find("header")),
+            "has_nav": bool(soup.find("nav")),
+            "has_main": bool(soup.find("main")),
+            "has_footer": bool(soup.find("footer")),
+            "has_sidebar": bool(soup.find("aside")),
+            "forms_count": len(soup.find_all("form")),
+            "links_count": len(soup.find_all("a"))
+        }
+        
+        # Determine content type
+        if soup.find("article"):
+            analysis["content_type"] = "blog/article"
+        elif soup.find("product"):
+            analysis["content_type"] = "ecommerce"
+        elif len(soup.find_all("form")) > 2:
+            analysis["content_type"] = "business/contact"
+        else:
+            analysis["content_type"] = "corporate"
+        
+        # AI-powered analysis
+        ai_analysis = await analyze_website_with_ai(analysis, html_content[:5000])
+        analysis["ai_insights"] = ai_analysis
+        
+        return {"ok": True, "analysis": analysis}
+        
+    except Exception as e:
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+async def analyze_website_with_ai(analysis: dict, content_sample: str) -> dict:
+    """Use AI to analyze website design and content strategy"""
+    if not GROQ_API_KEY:
+        return {"error": "No AI backend configured"}
+    
+    prompt = f"""
+    Analyze this website and provide insights for creating a similar site:
+    
+    URL: {analysis['url']}
+    Title: {analysis['title']}
+    Description: {analysis['meta_description']}
+    Content Type: {analysis['content_type']}
+    
+    Structure: {json.dumps(analysis['structure'], indent=2)}
+    
+    Content Sample: {content_sample[:2000]}
+    
+    Provide:
+    1. Overall design style (modern, minimalist, corporate, creative, etc.)
+    2. Color scheme suggestions
+    3. Content strategy insights
+    4. Key features to replicate
+    5. SEO optimization suggestions
+    6. User experience recommendations
+    """
+    
+    try:
+        timeout = httpx.Timeout(30.0, read=30.0, write=10.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as hx:
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama3-8b-8192",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3,
+                "max_tokens": 1500
+            }
+            r = await hx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers)
+            if r.status_code == 200:
+                response = r.json()
+                return {
+                    "insights": response["choices"][0]["message"]["content"],
+                    "model": response["model"]
+                }
+            else:
+                return {"error": f"AI analysis failed: {r.text}"}
+    except Exception as e:
+        return {"error": f"AI analysis error: {str(e)}"}
+
+@app.post("/ai/website/generate")
+async def generate_website(request: Request, x_om_key: Optional[str] = Header(None)):
+    """Generate a complete website based on data and references"""
+    require_admin(x_om_key)
+    
+    try:
+        payload = await request.json()
+        
+        # Extract parameters
+        site_data = payload.get("site_data", {})
+        references = payload.get("references", [])
+        template = payload.get("template", "corporate")
+        target_platform = payload.get("target_platform", "wordpress")  # wordpress, static, etc.
+        
+        # Generate website structure
+        website_structure = await generate_website_structure(site_data, references, template)
+        
+        # Generate content
+        content = await generate_website_content(site_data, references)
+        
+        # Generate HTML/CSS if needed
+        if target_platform == "static":
+            html_output = await generate_static_html(website_structure, content)
+            website_structure["static_html"] = html_output
+        
+        # WordPress integration
+        if target_platform == "wordpress" and payload.get("wordpress_config"):
+            wp_config = payload["wordpress_config"]
+            wordpress_result = await create_wordpress_site(
+                website_structure, content, wp_config
+            )
+            website_structure["wordpress_deployment"] = wordpress_result
+        
+        return {
+            "ok": True,
+            "website": website_structure,
+            "content": content,
+            "target_platform": target_platform
+        }
+        
+    except Exception as e:
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+async def generate_website_structure(site_data: dict, references: list, template: str) -> dict:
+    """Generate website structure based on data and references"""
+    if not GROQ_API_KEY:
+        return {"error": "No AI backend configured"}
+    
+    prompt = f"""
+    Create a complete website structure for: {site_data.get('name', 'Website')}
+    
+    Business Info: {json.dumps(site_data, indent=2)}
+    Template Style: {template}
+    Reference Sites: {', '.join(references)}
+    
+    Generate:
+    1. Site map (pages and navigation)
+    2. Content sections for each page
+    3. SEO structure (meta tags, headings)
+    4. Call-to-action placements
+    5. User flow optimization
+    6. Mobile responsiveness considerations
+    
+    Return as structured JSON with pages, sections, and metadata.
+    """
+    
+    try:
+        timeout = httpx.Timeout(30.0, read=30.0, write=10.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as hx:
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama3-8b-8192",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.4,
+                "max_tokens": 2000
+            }
+            r = await hx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers)
+            if r.status_code == 200:
+                response = r.json()
+                ai_response = response["choices"][0]["message"]["content"]
+                
+                # Try to parse as JSON, fallback to text structure
+                try:
+                    return json.loads(ai_response)
+                except:
+                    return {
+                        "structure": ai_response,
+                        "pages": ["home", "about", "services", "contact"],
+                        "template": template,
+                        "generated": True
+                    }
+            else:
+                return {"error": f"Structure generation failed: {r.text}"}
+    except Exception as e:
+        return {"error": f"Structure generation error: {str(e)}"}
+
+async def generate_website_content(site_data: dict, references: list) -> dict:
+    """Generate website content based on business data"""
+    if not GROQ_API_KEY:
+        return {"error": "No AI backend configured"}
+    
+    prompt = f"""
+    Generate compelling website content for: {site_data.get('name', 'Business')}
+    
+    Business Data: {json.dumps(site_data, indent=2)}
+    Industry: {site_data.get('industry', 'general')}
+    Target Audience: {site_data.get('audience', 'general')}
+    
+    Create:
+    1. Homepage hero section with headline and subheadline
+    2. About section with company story
+    3. Services/products descriptions
+    4. Call-to-action copy
+    5. SEO-optimized meta descriptions
+    6. Social proof content
+    
+    Make it engaging, conversion-focused, and professional.
+    """
+    
+    try:
+        timeout = httpx.Timeout(30.0, read=30.0, write=10.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as hx:
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama3-8b-8192",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.6,
+                "max_tokens": 2500
+            }
+            r = await hx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers)
+            if r.status_code == 200:
+                response = r.json()
+                return {
+                    "content": response["choices"][0]["message"]["content"],
+                    "generated": True,
+                    "timestamp": int(time.time())
+                }
+            else:
+                return {"error": f"Content generation failed: {r.text}"}
+    except Exception as e:
+        return {"error": f"Content generation error: {str(e)}"}
+
+async def generate_static_html(structure: dict, content: dict) -> str:
+    """Generate static HTML from structure and content"""
+    # Simple HTML template
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{structure.get('title', 'Site Web')}</title>
+        <meta name="description" content="{structure.get('description', '')}">
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
+            .hero {{ background: #f0f0f0; padding: 50px; text-align: center; }}
+            .section {{ margin: 40px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="hero">
+            <h1>{structure.get('hero_title', 'Bienvenue')}</h1>
+            <p>{structure.get('hero_subtitle', 'Découvrez notre site web')}</p>
+        </div>
+        
+        <div class="section">
+            <h2>À propos</h2>
+            <p>{content.get('about', 'Contenu à propos...')}</p>
+        </div>
+        
+        <div class="section">
+            <h2>Services</h2>
+            <p>{content.get('services', 'Nos services...')}</p>
+        </div>
+        
+        <div class="section">
+            <h2>Contact</h2>
+            <p>{content.get('contact', 'Contactez-nous...')}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html_template
+
+async def create_wordpress_site(structure: dict, content: dict, wp_config: dict) -> dict:
+    """Create a complete WordPress site with pages and content"""
+    try:
+        wp_url = wp_config.get("url")
+        wp_user = wp_config.get("username")
+        wp_password = wp_config.get("password")
+        
+        if not all([wp_url, wp_user, wp_password]):
+            return {"error": "WordPress config incomplete"}
+        
+        results = []
+        
+        # Create homepage
+        home_result = await create_wordpress_page({
+            "title": "Accueil",
+            "content": content.get("homepage", "Contenu d'accueil..."),
+            "status": "publish"
+        }, wp_url, wp_user, wp_password)
+        results.append({"homepage": home_result})
+        
+        # Create about page
+        about_result = await create_wordpress_page({
+            "title": "À propos",
+            "content": content.get("about", "Contenu à propos..."),
+            "status": "publish"
+        }, wp_url, wp_user, wp_password)
+        results.append({"about": about_result})
+        
+        # Create services page
+        services_result = await create_wordpress_page({
+            "title": "Services",
+            "content": content.get("services", "Nos services..."),
+            "status": "publish"
+        }, wp_url, wp_user, wp_password)
+        results.append({"services": services_result})
+        
+        return {
+            "success": True,
+            "pages_created": results,
+            "site_url": wp_url
+        }
+        
+    except Exception as e:
+        return {"error": f"WordPress site creation failed: {str(e)}"}
+
+async def create_wordpress_page(page_data: dict, wp_url: str, wp_user: str, wp_password: str) -> dict:
+    """Create a single WordPress page"""
+    try:
+        api_url = f"{wp_url}/wp-json/wp/v2/pages"
+        
+        auth = (wp_user, wp_password)
+        async with httpx.AsyncClient() as client:
+            r = await client.post(api_url, json=page_data, auth=auth)
+            if r.status_code in [200, 201]:
+                result = r.json()
+                return {
+                    "success": True,
+                    "page_id": result.get("id"),
+                    "page_url": result.get("link"),
+                    "status": result.get("status")
+                }
+            else:
+                return {"error": f"WordPress API error: {r.text}"}
+                
+    except Exception as e:
+        return {"error": f"Page creation error: {str(e)}"}
 
 # ---------- Admin Data Management (Turso) ----------
 @app.post("/admin/tasks")
