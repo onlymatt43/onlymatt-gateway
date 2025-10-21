@@ -50,8 +50,8 @@ async function analyzeContent() {
     resultsDiv.innerHTML = '<p>Analyse du contenu en cours...</p>';
 
     // Simulate content analysis
-    setTimeout(() => {
-        resultsDiv.innerHTML = `
+    setTimeout(async () => {
+        const results = `
             <h5>Analyse du Contenu</h5>
             <div class="alert alert-info">
                 <strong>Patterns identifiés:</strong><br>
@@ -67,6 +67,14 @@ async function analyzeContent() {
                 - Mettre à jour les dépendances
             </div>
         `;
+
+        resultsDiv.innerHTML = results;
+
+        // Save to Turso
+        await saveAnalysis('content', results, JSON.stringify({
+            patterns: ['Python: 15', 'Config: 8', 'Static: 25', 'Logs: 3'],
+            recommendations: ['Optimiser images', 'Compresser logs', 'Mettre à jour dépendances']
+        }));
     }, 2000);
 }
 
@@ -75,8 +83,8 @@ async function checkChanges() {
     resultsDiv.innerHTML = '<p>Vérification des changements...</p>';
 
     // Simulate change detection
-    setTimeout(() => {
-        resultsDiv.innerHTML = `
+    setTimeout(async () => {
+        const results = `
             <h5>Changements Détectés</h5>
             <div class="alert alert-warning">
                 <strong>Fichiers modifiés récemment:</strong><br>
@@ -90,7 +98,38 @@ async function checkChanges() {
                 - static/css/admin.css
             </div>
         `;
+
+        resultsDiv.innerHTML = results;
+
+        // Save to Turso
+        await saveAnalysis('changes', results, JSON.stringify({
+            modified: ['gateway.py', 'README.md', 'templates/admin.html'],
+            new: ['static/js/chat.js', 'static/css/admin.css']
+        }));
     }, 1500);
+}
+
+async function saveAnalysis(type, results, stats) {
+    try {
+        const response = await fetch('/admin/analyses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OM-Key': 'test_key'
+            },
+            body: JSON.stringify({
+                type: type,
+                results: results,
+                stats: stats
+            })
+        });
+
+        if (!response.ok) {
+            console.error('Erreur sauvegarde analyse');
+        }
+    } catch (error) {
+        console.error('Erreur connexion sauvegarde analyse:', error);
+    }
 }
 
 async function generateStats() {

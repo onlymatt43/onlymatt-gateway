@@ -14,6 +14,7 @@ async function sendMessage() {
 
     // Add user message
     addMessage('user', message);
+    const userMessage = message;
     messageInput.value = '';
 
     try {
@@ -24,7 +25,7 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 model: document.getElementById('model-select').value,
-                prompt: message,
+                prompt: userMessage,
                 temperature: parseFloat(temperatureSlider.value),
                 stream: false
             })
@@ -33,12 +34,40 @@ async function sendMessage() {
         const data = await response.json();
 
         if (response.ok) {
-            addMessage('assistant', data.response || 'Réponse reçue');
+            const assistantResponse = data.response || 'Réponse reçue';
+            addMessage('assistant', assistantResponse);
+
+            // Save to Turso
+            await saveChatHistory(userMessage, assistantResponse);
         } else {
             addMessage('assistant', 'Erreur: ' + (data.error || 'Erreur inconnue'));
         }
     } catch (error) {
         addMessage('assistant', 'Erreur de connexion: ' + error.message);
+    }
+}
+
+async function saveChatHistory(userMessage, assistantResponse) {
+    try {
+        const response = await fetch('/admin/chat/history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OM-Key': 'test_key'
+            },
+            body: JSON.stringify({
+                user_message: userMessage,
+                assistant_response: assistantResponse,
+                model: document.getElementById('model-select').value,
+                temperature: parseFloat(temperatureSlider.value)
+            })
+        });
+
+        if (!response.ok) {
+            console.error('Erreur sauvegarde chat');
+        }
+    } catch (error) {
+        console.error('Erreur connexion sauvegarde chat:', error);
     }
 }
 

@@ -187,6 +187,46 @@ try:
         );
         """,
         "CREATE INDEX IF NOT EXISTS idx_mem_user ON memories(user_id, persona, key);",
+        """
+        CREATE TABLE IF NOT EXISTS admin_tasks (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          priority TEXT DEFAULT 'medium',
+          status TEXT DEFAULT 'pending',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS admin_reports (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS admin_analyses (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          path TEXT,
+          results TEXT NOT NULL,
+          stats TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS chat_history (
+          id TEXT PRIMARY KEY,
+          user_message TEXT NOT NULL,
+          assistant_response TEXT NOT NULL,
+          model TEXT,
+          temperature REAL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
     ]
 
     @app.on_event("startup")
@@ -322,6 +362,302 @@ async def list_files(path: str = ".", recursive: bool = False, x_om_key: Optiona
             files = [f.name for f in p.iterdir() if f.is_file()]
         return {"ok": True, "path": str(p), "files": files}
     except Exception as e:
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+# ---------- Admin Data Management (Turso) ----------
+@app.post("/admin/tasks")
+async def create_task(request: Request, payload: dict = Body(...)):
+    rl(request.client.host)
+    require_admin(request.headers.get("x_om_key"))
+
+    for f in ["title", "description"]:
+        if not payload.get(f):
+            raise HTTPException(400, f"{f} required")
+
+    task_id = f"task_{int(time.time()*1000)}_{int.from_bytes(os.urandom(3),'big')}"
+    try:
+        sql = (
+            "INSERT INTO admin_tasks("
+            " id,title,description,priority,status"
+            ") VALUES("
+            " :id,:title,:description,:priority,:status"
+            ")"
+        )
+        params = {
+            "id": task_id,
+            "title": payload["title"],
+            "description": payload["description"],
+            "priority": payload.get("priority", "medium"),
+            "status": "pending",
+        }
+        await db().execute(sql, params)
+        return {"ok": True, "id": task_id}
+    except Exception as e:
+        logging.exception("create task failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.get("/admin/tasks")
+async def get_tasks(x_om_key: Optional[str] = Header(None)):
+    require_admin(x_om_key)
+    try:
+        sql = "SELECT * FROM admin_tasks ORDER BY created_at DESC"
+        res = await db().execute(sql)
+
+        def pick(row, name, idx):
+            try:
+                if isinstance(row, dict):
+                    return row.get(name)
+                try:
+                    return row[name]
+                except Exception:
+                    return row[idx]
+            except Exception:
+                return None
+
+        tasks = []
+        for r in res.rows:
+            tasks.append({
+                "id": pick(r, "id", 0),
+                "title": pick(r, "title", 1),
+                "description": pick(r, "description", 2),
+                "priority": pick(r, "priority", 3),
+                "status": pick(r, "status", 4),
+                "created_at": pick(r, "created_at", 5),
+                "updated_at": pick(r, "updated_at", 6),
+            })
+
+        return {"ok": True, "tasks": tasks}
+    except Exception as e:
+        logging.exception("get tasks failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.put("/admin/tasks/{task_id}")
+async def update_task(task_id: str, request: Request, payload: dict = Body(...)):
+    rl(request.client.host)
+    require_admin(request.headers.get("x_om_key"))
+
+    try:
+        sql = (
+            "UPDATE admin_tasks SET "
+            "status = :status, "
+            "updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = :id"
+        )
+        params = {
+            "id": task_id,
+            "status": payload.get("status", "pending"),
+        }
+        await db().execute(sql, params)
+        return {"ok": True}
+    except Exception as e:
+        logging.exception("update task failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.delete("/admin/tasks/{task_id}")
+async def delete_task(task_id: str, request: Request, x_om_key: Optional[str] = Header(None)):
+    rl(request.client.host)
+    require_admin(x_om_key)
+
+    try:
+        sql = "DELETE FROM admin_tasks WHERE id = :id"
+        params = {"id": task_id}
+        await db().execute(sql, params)
+        return {"ok": True}
+    except Exception as e:
+        logging.exception("delete task failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.post("/admin/reports")
+async def create_report(request: Request, payload: dict = Body(...)):
+    rl(request.client.host)
+    require_admin(request.headers.get("x_om_key"))
+
+    for f in ["type", "title", "content"]:
+        if not payload.get(f):
+            raise HTTPException(400, f"{f} required")
+
+    report_id = f"report_{int(time.time()*1000)}_{int.from_bytes(os.urandom(3),'big')}"
+    try:
+        sql = (
+            "INSERT INTO admin_reports("
+            " id,type,title,content"
+            ") VALUES("
+            " :id,:type,:title,:content"
+            ")"
+        )
+        params = {
+            "id": report_id,
+            "type": payload["type"],
+            "title": payload["title"],
+            "content": payload["content"],
+        }
+        await db().execute(sql, params)
+        return {"ok": True, "id": report_id}
+    except Exception as e:
+        logging.exception("create report failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.get("/admin/reports")
+async def get_reports(x_om_key: Optional[str] = Header(None)):
+    require_admin(x_om_key)
+    try:
+        sql = "SELECT * FROM admin_reports ORDER BY created_at DESC LIMIT 50"
+        res = await db().execute(sql)
+
+        def pick(row, name, idx):
+            try:
+                if isinstance(row, dict):
+                    return row.get(name)
+                try:
+                    return row[name]
+                except Exception:
+                    return row[idx]
+            except Exception:
+                return None
+
+        reports = []
+        for r in res.rows:
+            reports.append({
+                "id": pick(r, "id", 0),
+                "type": pick(r, "type", 1),
+                "title": pick(r, "title", 2),
+                "content": pick(r, "content", 3),
+                "created_at": pick(r, "created_at", 4),
+            })
+
+        return {"ok": True, "reports": reports}
+    except Exception as e:
+        logging.exception("get reports failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.post("/admin/analyses")
+async def create_analysis(request: Request, payload: dict = Body(...)):
+    rl(request.client.host)
+    require_admin(request.headers.get("x_om_key"))
+
+    for f in ["type", "results"]:
+        if not payload.get(f):
+            raise HTTPException(400, f"{f} required")
+
+    analysis_id = f"analysis_{int(time.time()*1000)}_{int.from_bytes(os.urandom(3),'big')}"
+    try:
+        sql = (
+            "INSERT INTO admin_analyses("
+            " id,type,path,results,stats"
+            ") VALUES("
+            " :id,:type,:path,:results,:stats"
+            ")"
+        )
+        params = {
+            "id": analysis_id,
+            "type": payload["type"],
+            "path": payload.get("path"),
+            "results": payload["results"],
+            "stats": payload.get("stats"),
+        }
+        await db().execute(sql, params)
+        return {"ok": True, "id": analysis_id}
+    except Exception as e:
+        logging.exception("create analysis failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.get("/admin/analyses")
+async def get_analyses(x_om_key: Optional[str] = Header(None)):
+    require_admin(x_om_key)
+    try:
+        sql = "SELECT * FROM admin_analyses ORDER BY created_at DESC LIMIT 20"
+        res = await db().execute(sql)
+
+        def pick(row, name, idx):
+            try:
+                if isinstance(row, dict):
+                    return row.get(name)
+                try:
+                    return row[name]
+                except Exception:
+                    return row[idx]
+            except Exception:
+                return None
+
+        analyses = []
+        for r in res.rows:
+            analyses.append({
+                "id": pick(r, "id", 0),
+                "type": pick(r, "type", 1),
+                "path": pick(r, "path", 2),
+                "results": pick(r, "results", 3),
+                "stats": pick(r, "stats", 4),
+                "created_at": pick(r, "created_at", 5),
+            })
+
+        return {"ok": True, "analyses": analyses}
+    except Exception as e:
+        logging.exception("get analyses failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.post("/admin/chat/history")
+async def save_chat_message(request: Request, payload: dict = Body(...)):
+    rl(request.client.host)
+    require_admin(request.headers.get("x_om_key"))
+
+    for f in ["user_message", "assistant_response"]:
+        if not payload.get(f):
+            raise HTTPException(400, f"{f} required")
+
+    chat_id = f"chat_{int(time.time()*1000)}_{int.from_bytes(os.urandom(3),'big')}"
+    try:
+        sql = (
+            "INSERT INTO chat_history("
+            " id,user_message,assistant_response,model,temperature"
+            ") VALUES("
+            " :id,:user_message,:assistant_response,:model,:temperature"
+            ")"
+        )
+        params = {
+            "id": chat_id,
+            "user_message": payload["user_message"],
+            "assistant_response": payload["assistant_response"],
+            "model": payload.get("model"),
+            "temperature": payload.get("temperature"),
+        }
+        await db().execute(sql, params)
+        return {"ok": True, "id": chat_id}
+    except Exception as e:
+        logging.exception("save chat failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+@app.get("/admin/chat/history")
+async def get_chat_history(limit: int = 50, x_om_key: Optional[str] = Header(None)):
+    require_admin(x_om_key)
+    try:
+        sql = f"SELECT * FROM chat_history ORDER BY created_at DESC LIMIT {max(1, min(int(limit), 200))}"
+        res = await db().execute(sql)
+
+        def pick(row, name, idx):
+            try:
+                if isinstance(row, dict):
+                    return row.get(name)
+                try:
+                    return row[name]
+                except Exception:
+                    return row[idx]
+            except Exception:
+                return None
+
+        messages = []
+        for r in res.rows:
+            messages.append({
+                "id": pick(r, "id", 0),
+                "user_message": pick(r, "user_message", 1),
+                "assistant_response": pick(r, "assistant_response", 2),
+                "model": pick(r, "model", 3),
+                "temperature": pick(r, "temperature", 4),
+                "created_at": pick(r, "created_at", 5),
+            })
+
+        return {"ok": True, "messages": messages}
+    except Exception as e:
+        logging.exception("get chat history failed")
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
 
 # ---------- Admin Interface ----------

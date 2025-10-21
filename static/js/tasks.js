@@ -1,28 +1,58 @@
 // Tasks functionality
-let tasks = JSON.parse(localStorage.getItem('admin_tasks') || '[]');
+let tasks = [];
 
-document.getElementById('task-form').addEventListener('submit', function(e) {
+document.getElementById('task-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
-    const task = {
-        id: Date.now(),
+    const data = {
         title: document.getElementById('task-title').value,
         description: document.getElementById('task-description').value,
-        priority: document.getElementById('task-priority').value,
-        status: 'pending',
-        created: new Date().toISOString()
+        priority: document.getElementById('task-priority').value
     };
 
-    tasks.push(task);
-    saveTasks();
-    renderTasks();
-    updateStats();
+    try {
+        const response = await fetch('/admin/tasks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OM-Key': 'test_key' // In production, get from secure source
+            },
+            body: JSON.stringify(data)
+        });
 
-    document.getElementById('task-form').reset();
+        const result = await response.json();
+
+        if (response.ok) {
+            alert('Tâche ajoutée avec succès!');
+            document.getElementById('task-form').reset();
+            loadTasks();
+        } else {
+            alert('Erreur: ' + (result.err || 'Erreur inconnue'));
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
 });
 
-function saveTasks() {
-    localStorage.setItem('admin_tasks', JSON.stringify(tasks));
+async function loadTasks() {
+    try {
+        const response = await fetch('/admin/tasks', {
+            headers: {
+                'X-OM-Key': 'test_key'
+            }
+        });
+        const data = await response.json();
+
+        if (data.ok) {
+            tasks = data.tasks;
+            renderTasks();
+            updateStats();
+        } else {
+            console.error('Erreur chargement tâches:', data.err);
+        }
+    } catch (error) {
+        console.error('Erreur connexion:', error);
+    }
 }
 
 function renderTasks() {
@@ -37,11 +67,11 @@ function renderTasks() {
                 <div>
                     <h6 class="mb-1">${task.title}</h6>
                     <p class="mb-1">${task.description}</p>
-                    <small class="text-muted">Créé: ${new Date(task.created).toLocaleDateString()}</small>
+                    <small class="text-muted">Créé: ${new Date(task.created_at).toLocaleDateString()}</small>
                 </div>
                 <div>
-                    <button class="btn btn-sm btn-outline-success me-1" onclick="completeTask(${task.id})">✓</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${task.id})">×</button>
+                    <button class="btn btn-sm btn-outline-success me-1" onclick="completeTask('${task.id}')">✓</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTask('${task.id}')">×</button>
                 </div>
             </div>
         `;
@@ -49,21 +79,46 @@ function renderTasks() {
     });
 }
 
-function completeTask(id) {
-    const task = tasks.find(t => t.id === id);
-    if (task) {
-        task.status = task.status === 'completed' ? 'pending' : 'completed';
-        saveTasks();
-        renderTasks();
-        updateStats();
+async function completeTask(id) {
+    try {
+        const response = await fetch(`/admin/tasks/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OM-Key': 'test_key'
+            },
+            body: JSON.stringify({ status: 'completed' })
+        });
+
+        if (response.ok) {
+            loadTasks();
+        } else {
+            alert('Erreur lors de la mise à jour');
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
     }
 }
 
-function deleteTask(id) {
-    tasks = tasks.filter(t => t.id !== id);
-    saveTasks();
-    renderTasks();
-    updateStats();
+async function deleteTask(id) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) return;
+
+    try {
+        const response = await fetch(`/admin/tasks/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'X-OM-Key': 'test_key'
+            }
+        });
+
+        if (response.ok) {
+            loadTasks();
+        } else {
+            alert('Erreur lors de la suppression');
+        }
+    } catch (error) {
+        alert('Erreur de connexion: ' + error.message);
+    }
 }
 
 function updateStats() {
@@ -77,5 +132,4 @@ function updateStats() {
 }
 
 // Load tasks on page load
-renderTasks();
-updateStats();
+loadTasks();
