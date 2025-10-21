@@ -2,7 +2,7 @@
 import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
-from fastapi import FastAPI, Request, HTTPException, Body, Header
+from fastapi import FastAPI, Request, HTTPException, Body, Header, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -30,6 +30,10 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"ok": True, "service": "ONLYMATT Gateway"}
+
+@app.head("/")
+def root_head():
+    return Response(status_code=200)
 
 @app.get("/health")
 async def health():
