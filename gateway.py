@@ -6,6 +6,13 @@ from fastapi import FastAPI, Request, HTTPException, Body, Header, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # ---------- Env ----------
 OM_ADMIN_KEY  = os.getenv("OM_ADMIN_KEY", "")
 AI_BACKEND    = os.getenv("AI_BACKEND", "")
@@ -288,4 +295,23 @@ async def memory_recall(user_id: str, persona: str = "coach_v1", limit: int = 10
         return {"ok": True, "memories": out}
     except Exception as e:
         logging.exception("recall failed")
+        return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
+
+# ---------- File monitoring endpoints ----------
+import os
+from pathlib import Path
+
+@app.get("/ai/files/list")
+async def list_files(path: str = ".", recursive: bool = False, x_om_key: Optional[str] = Header(None)):
+    require_admin(x_om_key)
+    try:
+        p = Path(path).resolve()
+        if not p.exists():
+            raise HTTPException(404, "Path not found")
+        if recursive:
+            files = [str(f.relative_to(p)) for f in p.rglob("*") if f.is_file()]
+        else:
+            files = [f.name for f in p.iterdir() if f.is_file()]
+        return {"ok": True, "path": str(p), "files": files}
+    except Exception as e:
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
