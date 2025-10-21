@@ -17,6 +17,7 @@ except ImportError:
 OM_ADMIN_KEY  = os.getenv("OM_ADMIN_KEY", "")
 AI_BACKEND    = os.getenv("AI_BACKEND", "")
 OLLAMA_URL    = os.getenv("OLLAMA_URL", "")
+GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
 TURSO_DB_URL  = os.getenv("TURSO_DB_URL", "")
 TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
 
@@ -142,6 +143,41 @@ async def ai_chat(request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(400, "Bad JSON")
+
+    # Support for Groq API
+    if GROQ_API_KEY and (AI_BACKEND == "groq" or not (OLLAMA_URL or AI_BACKEND)):
+        try:
+            # Convert payload to Groq format
+            groq_payload = {
+                "model": payload.get("model", "llama3-8b-8192"),
+                "messages": payload.get("messages", []),
+                "temperature": payload.get("temperature", 0.7),
+                "max_tokens": payload.get("max_tokens", 1024),
+                "stream": payload.get("stream", False)
+            }
+
+            timeout = httpx.Timeout(60.0, read=60.0, write=30.0, connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout) as hx:
+                headers = {
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                r = await hx.post("https://api.groq.com/openai/v1/chat/completions", json=groq_payload, headers=headers)
+                if r.status_code == 200:
+                    groq_response = r.json()
+                    # Convert Groq response to expected format
+                    return {
+                        "ok": True,
+                        "response": groq_response["choices"][0]["message"]["content"],
+                        "model": groq_response["model"],
+                        "usage": groq_response.get("usage", {})
+                    }
+                else:
+                    return JSONResponse({"ok": False, "error": r.text}, status_code=r.status_code)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+    # Fallback to existing proxy logic
     target = OLLAMA_URL or AI_BACKEND
     if not target:
         raise HTTPException(502, "No AI backend configured")
