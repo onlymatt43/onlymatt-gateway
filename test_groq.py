@@ -20,7 +20,7 @@ async def test_groq_chat():
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Hello! Can you tell me about yourself?"}
         ],
-        "model": "llama3-8b-8192",
+        "model": "llama-3.1-70b-versatile",
         "temperature": 0.7,
         "max_tokens": 1024
     }

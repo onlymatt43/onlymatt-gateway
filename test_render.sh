@@ -9,7 +9,7 @@ echo "1. Health check de base:"
 curl https://onlymatt-gateway.onrender.com/health
 
 echo -e "\n2. Health check AI (avec clé admin):"
-curl -H "x-om-key: sk_admin_e0e7fbda4b440ad82606c940d6fa084f" \
+curl -H "x-om-key: 64b29ac4e96c12e23c1a58f93ad1509e" \
      https://onlymatt-gateway.onrender.com/ai/health
 
 echo -e "\n=== TESTS FONCTIONNELS ==="
@@ -18,14 +18,14 @@ echo -e "\n=== TESTS FONCTIONNELS ==="
 echo -e "\n3. Test d'analyse de site web:"
 curl -X POST https://onlymatt-gateway.onrender.com/ai/website/analyze \
      -H "Content-Type: application/json" \
-     -H "x-om-key: sk_admin_e0e7fbda4b440ad82606c940d6fa084f" \
+     -H "x-om-key: 64b29ac4e96c12e23c1a58f93ad1509e" \
      -d '{"url": "https://example.com"}'
 
 # Test de génération de site
 echo -e "\n4. Test de génération de site:"
 curl -X POST https://onlymatt-gateway.onrender.com/ai/website/generate \
      -H "Content-Type: application/json" \
-     -H "x-om-key: sk_admin_e0e7fbda4b440ad82606c940d6fa084f" \
+     -H "x-om-key: 64b29ac4e96c12e23c1a58f93ad1509e" \
      -d '{
        "site_data": {
          "name": "Test Company",

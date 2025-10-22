@@ -149,7 +149,7 @@ async def ai_chat(request: Request):
         try:
             # Convert payload to Groq format
             groq_payload = {
-                "model": payload.get("model", "llama3-8b-8192"),
+                "model": payload.get("model", "llama-3.1-70b-versatile"),
                 "messages": payload.get("messages", []),
                 "temperature": payload.get("temperature", 0.7),
                 "max_tokens": payload.get("max_tokens", 1024),
@@ -499,7 +499,7 @@ async def analyze_file_content(file_info: dict, content: bytes) -> dict:
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "llama3-8b-8192",
+                "model": "llama-3.1-70b-versatile",
                 "messages": [{"role": "user", "content": analysis_prompt}],
                 "temperature": 0.3,
                 "max_tokens": 1000
@@ -699,7 +699,7 @@ async def analyze_website_with_ai(analysis: dict, content_sample: str) -> dict:
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "llama3-8b-8192",
+                "model": "llama-3.1-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.3,
                 "max_tokens": 1500
@@ -790,7 +790,7 @@ async def generate_website_structure(site_data: dict, references: list, template
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "llama3-8b-8192",
+                "model": "llama-3.1-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.4,
                 "max_tokens": 2000
@@ -846,7 +846,7 @@ async def generate_website_content(site_data: dict, references: list) -> dict:
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "llama3-8b-8192",
+                "model": "llama-3.1-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.6,
                 "max_tokens": 2500
