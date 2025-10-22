@@ -738,7 +738,7 @@ async def generate_website(request: Request, x_om_key: Optional[str] = Header(No
         
         # Generate HTML/CSS if needed
         if target_platform == "static":
-            html_output = await generate_static_html(website_structure, content)
+            html_output = await generate_static_html(website_structure, content, site_data)
             website_structure["static_html"] = html_output
         
         # WordPress integration
@@ -864,58 +864,365 @@ async def generate_website_content(site_data: dict, references: list) -> dict:
     except Exception as e:
         return {"error": f"Content generation error: {str(e)}"}
 
-async def generate_static_html(structure: dict, content: dict) -> str:
-    """Generate static HTML from structure and content"""
-    # Simple HTML template
-    html_template = f"""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{structure.get('title', 'Site Web')}</title>
-        <meta name="description" content="{structure.get('description', '')}">
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
-            .hero {{ background: #f0f0f0; padding: 50px; text-align: center; }}
-            .section {{ margin: 40px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="hero">
-            <h1>{structure.get('hero_title', 'Bienvenue')}</h1>
-            <p>{structure.get('hero_subtitle', 'Découvrez notre site web')}</p>
+async def generate_static_html(structure: dict, content: dict, site_data: dict) -> str:
+    """Generate modern static HTML from structure and content"""
+    # Template HTML moderne et responsive
+    html_template = '''<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <meta name="description" content="{description}">
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }}
+
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }}
+
+        /* Header */
+        header {{
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }}
+
+        nav {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }}
+
+        .logo {{
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+        }}
+
+        .nav-links {{
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }}
+
+        .nav-links a {{
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: color 0.3s;
+        }}
+
+        .nav-links a:hover {{
+            color: #667eea;
+        }}
+
+        /* Hero Section */
+        .hero {{
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9), rgba(118, 75, 162, 0.9)),
+                        url('https://images.unsplash.com/photo-1557804506-669a67965ba0?ixlib=rb-4.0.3&auto=format&fit=crop&w=2074&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 120px 0 80px;
+            text-align: center;
+            margin-top: 70px;
+        }}
+
+        .hero h1 {{
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }}
+
+        .hero p {{
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }}
+
+        .cta-button {{
+            display: inline-block;
+            background: #ff6b6b;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }}
+
+        .cta-button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }}
+
+        /* Sections */
+        .section {{
+            background: white;
+            margin: 40px 0;
+            padding: 60px 0;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }}
+
+        .section h2 {{
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: #333;
+        }}
+
+        .section-content {{
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }}
+
+        /* Services Grid */
+        .services-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }}
+
+        .service-card {{
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }}
+
+        .service-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }}
+
+        .service-card h3 {{
+            color: #667eea;
+            margin-bottom: 1rem;
+        }}
+
+        /* Footer */
+        footer {{
+            background: #2c3e50;
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+        }}
+
+        .footer-content {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }}
+
+        .footer-section h3 {{
+            margin-bottom: 1rem;
+            color: #3498db;
+        }}
+
+        .footer-section ul {{
+            list-style: none;
+        }}
+
+        .footer-section ul li {{
+            margin-bottom: 0.5rem;
+        }}
+
+        .footer-section a {{
+            color: #bdc3c7;
+            text-decoration: none;
+        }}
+
+        .footer-section a:hover {{
+            color: #3498db;
+        }}
+
+        .copyright {{
+            border-top: 1px solid #34495e;
+            padding-top: 2rem;
+            color: #95a5a6;
+        }}
+
+        /* Responsive */
+        @media (max-width: 768px) {{
+            .hero h1 {{
+                font-size: 2.5rem;
+            }}
+
+            .nav-links {{
+                display: none;
+            }}
+
+            .services-grid {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">{company_name}</div>
+            <ul class="nav-links">
+                <li><a href="#accueil">Accueil</a></li>
+                <li><a href="#services">Services</a></li>
+                <li><a href="#about">À propos</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="hero" id="accueil">
+        <div class="container">
+            <h1>{hero_title}</h1>
+            <p>{hero_subtitle}</p>
+            <a href="#contact" class="cta-button">Nous contacter</a>
         </div>
-        
-        <div class="section">
-            <h2>À propos</h2>
-            <p>{content.get('about', 'Contenu à propos...')}</p>
+    </section>
+
+    <section class="section" id="services">
+        <div class="container">
+            <h2>Nos Services</h2>
+            <div class="section-content">
+                <div class="services-grid">
+                    {services_html}
+                </div>
+            </div>
         </div>
-        
-        <div class="section">
-            <h2>Services</h2>
-            <p>{content.get('services', 'Nos services...')}</p>
+    </section>
+
+    <section class="section" id="about">
+        <div class="container">
+            <h2>À propos de nous</h2>
+            <div class="section-content">
+                <p>{about_content}</p>
+            </div>
         </div>
-        
-        <div class="section">
-            <h2>Contact</h2>
-            <p>{content.get('contact', 'Contactez-nous...')}</p>
+    </section>
+
+    <section class="section" id="contact">
+        <div class="container">
+            <h2>Contactez-nous</h2>
+            <div class="section-content">
+                <p>{contact_content}</p>
+                <p><strong>Email:</strong> {contact_email}</p>
+                <p><strong>Téléphone:</strong> {contact_phone}</p>
+            </div>
         </div>
-    </body>
-    </html>
-    """
-    
-    return html_template
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>{company_name}</h3>
+                    <p>{footer_description}</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Liens utiles</h3>
+                    <ul>
+                        <li><a href="#accueil">Accueil</a></li>
+                        <li><a href="#services">Services</a></li>
+                        <li><a href="#about">À propos</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Contact</h3>
+                    <ul>
+                        <li>Email: {contact_email}</li>
+                        <li>Tél: {contact_phone}</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>&copy; 2025 {company_name}. Tous droits réservés.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>'''
+
+    # Extraire les données du contenu et site_data
+    company_name = site_data.get('name', structure.get('title', 'Mon Entreprise'))
+    hero_title = f'Bienvenue chez {company_name}'
+    hero_subtitle = site_data.get('description', 'Votre partenaire de confiance')
+
+    # Générer le HTML des services
+    services_list = site_data.get('services', [])
+    services_html = ''
+    for service in services_list[:6]:  # Maximum 6 services
+        if service.strip():
+            services_html += f'''
+            <div class="service-card">
+                <h3>{service.strip()}</h3>
+                <p>Service professionnel et de qualité pour répondre à vos besoins.</p>
+            </div>'''
+
+    # Contenu des sections (utiliser le contenu généré par l'IA ou des valeurs par défaut)
+    ai_content = content.get('content', '')
+    about_content = ai_content[:500] + '...' if len(ai_content) > 500 else ai_content or 'Nous sommes une entreprise passionnée par l\'innovation et l\'excellence. Notre équipe s\'engage à fournir des solutions de haute qualité à nos clients.'
+    contact_content = 'N\'hésitez pas à nous contacter pour discuter de vos projets et besoins.'
+
+    # Informations de contact
+    contact_info = site_data.get('contact', {})
+    contact_email = contact_info.get('email', 'contact@exemple.com')
+    contact_phone = contact_info.get('phone', '+33 1 23 45 67 89')
+
+    # Description footer
+    footer_description = f'{company_name} - {site_data.get("description", "Votre partenaire de confiance depuis 2025.")}'
+
+    # Remplacer les variables dans le template
+    html = html_template.format(
+        title=structure.get('title', f'Site Web {company_name}'),
+        description=content.get('description', f'Site officiel de {company_name}'),
+        company_name=company_name,
+        hero_title=hero_title,
+        hero_subtitle=hero_subtitle,
+        services_html=services_html,
+        about_content=about_content,
+        contact_content=contact_content,
+        contact_email=contact_email,
+        contact_phone=contact_phone,
+        footer_description=footer_description
+    )
+
+    return html
 
 async def create_wordpress_site(structure: dict, content: dict, wp_config: dict) -> dict:
     """Create a complete WordPress site with pages and content"""
     try:
-        wp_url = wp_config.get("url")
-        wp_user = wp_config.get("username")
-        wp_password = wp_config.get("password")
+        wp_url = str(wp_config.get("url", ""))
+        wp_user = str(wp_config.get("username", ""))
+        wp_app_password = str(wp_config.get("application_password", ""))
         
-        if not all([wp_url, wp_user, wp_password]):
-            return {"error": "WordPress config incomplete"}
+        if not all([wp_url, wp_user, wp_app_password]):
+            return {"error": "WordPress config incomplete - need url, username, and application_password"}
         
         results = []
         
@@ -924,7 +1231,7 @@ async def create_wordpress_site(structure: dict, content: dict, wp_config: dict)
             "title": "Accueil",
             "content": content.get("homepage", "Contenu d'accueil..."),
             "status": "publish"
-        }, wp_url, wp_user, wp_password)
+        }, wp_url, wp_user, wp_app_password)
         results.append({"homepage": home_result})
         
         # Create about page
@@ -932,7 +1239,7 @@ async def create_wordpress_site(structure: dict, content: dict, wp_config: dict)
             "title": "À propos",
             "content": content.get("about", "Contenu à propos..."),
             "status": "publish"
-        }, wp_url, wp_user, wp_password)
+        }, wp_url, wp_user, wp_app_password)
         results.append({"about": about_result})
         
         # Create services page
@@ -940,7 +1247,7 @@ async def create_wordpress_site(structure: dict, content: dict, wp_config: dict)
             "title": "Services",
             "content": content.get("services", "Nos services..."),
             "status": "publish"
-        }, wp_url, wp_user, wp_password)
+        }, wp_url, wp_user, wp_app_password)
         results.append({"services": services_result})
         
         return {
@@ -952,13 +1259,14 @@ async def create_wordpress_site(structure: dict, content: dict, wp_config: dict)
     except Exception as e:
         return {"error": f"WordPress site creation failed: {str(e)}"}
 
-async def create_wordpress_page(page_data: dict, wp_url: str, wp_user: str, wp_password: str) -> dict:
-    """Create a single WordPress page"""
+async def create_wordpress_page(page_data: dict, wp_url: str, wp_user: str, wp_app_password: str) -> dict:
+    """Create a single WordPress page with alternative auth methods"""
     try:
         api_url = f"{wp_url}/wp-json/wp/v2/pages"
-        
-        auth = (wp_user, wp_password)
-        async with httpx.AsyncClient() as client:
+
+        # Essayer d'abord avec Application Password
+        auth = (wp_user, wp_app_password)
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             r = await client.post(api_url, json=page_data, auth=auth)
             if r.status_code in [200, 201]:
                 result = r.json()
@@ -966,13 +1274,120 @@ async def create_wordpress_page(page_data: dict, wp_url: str, wp_user: str, wp_p
                     "success": True,
                     "page_id": result.get("id"),
                     "page_url": result.get("link"),
-                    "status": result.get("status")
+                    "status": result.get("status"),
+                    "auth_method": "application_password"
                 }
+            elif r.status_code == 401:
+                # Si 401, essayer avec Bearer token (certains hébergeurs l'acceptent mieux)
+                headers = {
+                    "Authorization": f"Bearer {wp_app_password}",
+                    "Content-Type": "application/json"
+                }
+                r2 = await client.post(api_url, json=page_data, headers=headers)
+                if r2.status_code in [200, 201]:
+                    result = r2.json()
+                    return {
+                        "success": True,
+                        "page_id": result.get("id"),
+                        "page_url": result.get("link"),
+                        "status": result.get("status"),
+                        "auth_method": "bearer_token"
+                    }
+                else:
+                    return {
+                        "error": f"Hostinger bloque l'authentification. Erreur Basic Auth: {r.text[:200]}, Erreur Bearer: {r2.text[:200]}"
+                    }
             else:
                 return {"error": f"WordPress API error: {r.text}"}
-                
+
     except Exception as e:
         return {"error": f"Page creation error: {str(e)}"}
+
+async def create_wordpress_site_via_plugin(structure: dict, content: dict, wp_config: dict) -> dict:
+    """Alternative: Créer un site WordPress via un plugin personnalisé"""
+    try:
+        wp_url = wp_config.get("url")
+        wp_user = wp_config.get("username")
+        wp_app_password = str(wp_config.get("application_password", ""))
+
+        if not all([wp_url, wp_user, wp_app_password]):
+            return {"error": "WordPress config incomplete"}
+
+        # Créer un fichier PHP temporaire qui sera uploadé comme plugin
+        plugin_code = f'''<?php
+/**
+ * Plugin Name: OnlyMatt Auto Content
+ * Description: Plugin pour création automatique de contenu
+ * Version: 1.0
+ */
+
+// Hook pour créer les pages automatiquement
+add_action('init', 'om_create_pages');
+
+function om_create_pages() {{
+    if (!current_user_can('administrator')) return;
+
+    // Pages à créer
+    $pages = array(
+        array(
+            'post_title' => 'Accueil',
+            'post_content' => '{content.get("homepage", "Contenu d\\'accueil...").replace("'", "\\'")}',
+            'post_status' => 'publish',
+            'post_type' => 'page'
+        ),
+        array(
+            'post_title' => 'À propos',
+            'post_content' => '{content.get("about", "Contenu à propos...").replace("'", "\\'")}',
+            'post_status' => 'publish',
+            'post_type' => 'page'
+        ),
+        array(
+            'post_title' => 'Services',
+            'post_content' => '{content.get("services", "Nos services...").replace("'", "\\'")}',
+            'post_status' => 'publish',
+            'post_type' => 'page'
+        )
+    );
+
+    foreach ($pages as $page) {{
+        // Vérifier si la page existe déjà
+        $existing = get_page_by_title($page['post_title'], OBJECT, 'page');
+        if (!$existing) {{
+            wp_insert_post($page);
+        }}
+    }}
+
+    // Auto-désactivation après création
+    deactivate_plugins(plugin_basename(__FILE__));
+}}
+?>'''
+
+        # Uploader le plugin via l'API WordPress
+        plugin_data = {
+            "code": plugin_code,
+            "filename": "onlymatt-auto-content.php"
+        }
+
+        # Essayer d'uploader via l'endpoint personnalisé (nécessite un plugin côté serveur)
+        upload_url = f"{wp_url}/wp-json/om/v1/upload-plugin"
+        auth = (wp_user, wp_app_password)
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+            r = await client.post(upload_url, json=plugin_data, auth=auth)
+            if r.status_code == 200:
+                return {
+                    "success": True,
+                    "method": "plugin_upload",
+                    "message": "Plugin uploaded, pages will be created automatically"
+                }
+            else:
+                return {
+                    "error": f"Plugin upload failed: {r.text}",
+                    "alternative": "Considérez utiliser la génération HTML statique uniquement"
+                }
+
+    except Exception as e:
+        return {"error": f"Plugin method failed: {str(e)}"}
 
 # ---------- Admin Data Management (Turso) ----------
 @app.post("/admin/tasks")

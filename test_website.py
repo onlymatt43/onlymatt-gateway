@@ -59,11 +59,11 @@ async def test_website_generation():
         },
         "references": ["https://www.apple.com", "https://www.google.com"],
         "template": "modern",
-        "target_platform": "wordpress",
+                "target_platform": "wordpress",  # Tester le déploiement WordPress avec vraies credentials
         "wordpress_config": {
             "url": "https://om43.com",
-            "username": "admin",
-            "password": "your_password_here"
+            "username": "om43onepm",  # Vrai username WordPress
+            "application_password": "EffJMIGP6xOPozjFJS(3e@63"  # Mot de passe admin réel
         }
     }
 
