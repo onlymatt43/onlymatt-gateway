@@ -1,6 +1,99 @@
 # 🚀 OnlyMatt Gateway - Guide Complet de Configuration et Gestion
 
-## 📋 CHECKLIST DES RÉGLAGES SYSTÈME
+## � STRUCTURE DU PROJET - TABLEAU DÉTAILLÉ
+
+| Dossier/Fichier | Type | Taille | Description |
+|----------------|------|--------|-------------|
+| **📁 Racine du projet** | | | |
+| `gateway.py` | Fichier Python | ~60KB | **Cœur de l'application** - API FastAPI principale avec tous les endpoints |
+| `requirements.txt` | Fichier config | ~190B | Dépendances Python (FastAPI, httpx, libsql-client, etc.) |
+| `runtime.txt` | Fichier config | ~14B | Version Python pour Render (3.11.9) |
+| `Procfile` | Fichier config | ~53B | Commande de démarrage pour Render/Heroku |
+| `CONFIGURATION_GUIDE.md` | Documentation | ~7.7KB | **Guide complet** que vous lisez actuellement |
+| `README.md` | Documentation | ~3.4KB | Documentation générale du projet |
+| `.env` | Configuration | ~566B | Variables d'environnement (clés API, etc.) |
+| `.gitignore` | Configuration | ~41B | Fichiers à ignorer par Git |
+| `__pycache__/` | Cache Python | | Cache de compilation Python (généré automatiquement) |
+| `.git/` | Git | | Dossier de contrôle de version Git |
+| `.venv/` | Environnement virtuel | | Environnement Python isolé (non versionné) |
+
+### **📁 Dossier `templates/` - Interfaces Web**
+| Fichier | Taille | Description |
+|---------|--------|-------------|
+| `admin.html` | ~4.5KB | Interface d'administration principale |
+| `analysis.html` | ~4.7KB | Page d'analyse et rapports |
+| `chat.html` | ~2.6KB | Interface de chat AI |
+| `educate.html` | ~4.9KB | Page d'éducation/formation |
+| `reports.html` | ~3.4KB | Page des rapports système |
+| `tasks.html` | ~4.2KB | Gestionnaire de tâches |
+
+### **📁 Dossier `static/` - Ressources Statiques**
+| Sous-dossier | Contenu | Description |
+|-------------|---------|-------------|
+| `css/` | Feuilles de style | Styles CSS pour l'interface web |
+| `js/` | Scripts JavaScript | Logique frontend et interactions |
+
+### **📁 Dossier `uploads/` - Fichiers Uploadés**
+| Fichier | Taille | Description |
+|---------|--------|-------------|
+| `1761098386_bbf1905e.txt` | 115B | Fichier uploadé de test (contenu exemple) |
+| `1761098423_29b58664.txt` | 42B | Fichier uploadé de test (contenu exemple) |
+
+### **📁 Dossier `__pycache__/` - Cache Python**
+- Contient les fichiers `.pyc` compilés automatiquement
+- Généré lors de l'exécution des scripts Python
+- Non versionné (dans .gitignore)
+
+### **📁 Dossier `.git/` - Contrôle de Version**
+- Historique des commits
+- Branches et tags
+- Configuration Git locale
+- Non visible dans l'explorateur normal
+
+### **📁 Dossier `.venv/` - Environnement Virtuel**
+- Environnement Python isolé
+- Contient toutes les dépendances installées
+- Non versionné (dans .gitignore)
+- Créé avec `python3 -m venv venv`
+
+### **📄 Fichiers de Test et Développement**
+| Fichier | Taille | Description |
+|---------|--------|-------------|
+| `test_website.py` | ~3.5KB | Tests des fonctionnalités de génération de sites web |
+| `test_upload.py` | ~2.0KB | Tests des fonctionnalités d'upload de fichiers |
+| `test_groq.py` | ~1.1KB | Tests spécifiques de l'API Groq |
+| `test.py` | ~1.2KB | Tests divers et utilitaires |
+
+### **🌐 Fichiers Générés (Sites Web)**
+| Fichier | Taille | Description |
+|---------|--------|-------------|
+| `generated_website.html` | ~1.0KB | Site web généré (version originale) |
+| `generated_website_modern.html` | ~1.0KB | Site web généré (version moderne) |
+| `generated_website_final.html` | ~1.0KB | Site web généré (version finale) |
+
+---
+
+## 📊 STATISTIQUES DU PROJET
+
+- **Total fichiers** : ~35 fichiers
+- **Code Python** : ~65KB (principalement `gateway.py`)
+- **Documentation** : ~11KB (`README.md` + `CONFIGURATION_GUIDE.md`)
+- **Templates HTML** : ~25KB (6 fichiers d'interface)
+- **Configuration** : ~1KB (runtime, requirements, etc.)
+- **Tests** : ~8KB (4 fichiers de test)
+
+## 🔍 UTILISATION DES ESPACES
+
+- **Code applicatif** : `gateway.py` (60KB) - Cœur de l'API
+- **Interfaces web** : `templates/` (25KB) - 6 pages HTML
+- **Documentation** : Guides et README (11KB)
+- **Tests** : Scripts de validation (8KB)
+- **Uploads** : Fichiers utilisateur (variable)
+- **Cache/Dépendances** : Non versionnés (~500MB+ dans .venv)
+
+---
+
+## �📋 CHECKLIST DES RÉGLAGES SYSTÈME
 
 ### 🔑 Services Externes (Obligatoires)
 
