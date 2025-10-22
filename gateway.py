@@ -3,6 +3,7 @@ import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, HTTPException, Body, Header, Response, UploadFile, File, Form
+from fastapi.responses import RedirectResponse, RedirectResponse
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -1685,7 +1686,21 @@ async def get_chat_history(limit: int = 50, x_om_key: Optional[str] = Header(Non
         logging.exception("get chat history failed")
         return JSONResponse({"ok": False, "err": str(e)}, status_code=500)
 
-# ---------- Admin Interface ----------
+@app.get("/chat")
+async def redirect_chat():
+    return RedirectResponse(url="/admin/chat", status_code=302)
+
+@app.get("/tasks")
+async def redirect_tasks():
+    return RedirectResponse(url="/admin/tasks", status_code=302)
+
+@app.get("/reports")
+async def redirect_reports():
+    return RedirectResponse(url="/admin/reports", status_code=302)
+
+@app.get("/memory")
+async def redirect_memory():
+    return RedirectResponse(url="/admin", status_code=302)
 from fastapi import Form
 
 @app.get("/admin")
