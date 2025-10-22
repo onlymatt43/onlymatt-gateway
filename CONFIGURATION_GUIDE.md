@@ -240,7 +240,9 @@ echo "WORDPRESS_APP_PASSWORD=votre_mot_de_passe_app" >> .env
 ```
 
 ---
-
+# Éditez test_render.sh et remplacez :
+# https://VOTRE_APP_RENDER
+# (https://onlymatt-gateway.onrender.com/)
 ## 🔄 GESTION AU QUOTIDIEN
 
 ### **Démarrage Quotidien**
@@ -248,8 +250,8 @@ echo "WORDPRESS_APP_PASSWORD=votre_mot_de_passe_app" >> .env
 #### **1. Vérification du Statut**
 ```bash
 # Vérifier que tout fonctionne
-curl https://votre-app.render.com/health
-curl -H "x-om-key: votre_cle" https://votre-app.render.com/ai/health
+curl https://onlymatt-gateway.onrender.com/health
+curl -H "x-om-key: votre_cle" https://onlymatt-gateway.onrender.com/ai/health
 ```
 
 #### **2. Monitoring des Logs**

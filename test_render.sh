@@ -1,12 +1,12 @@
 # 🧪 Commandes de test pour OnlyMatt Gateway sur Render
 # Remplacez VOTRE_APP_RENDER par l'URL réelle de votre app
-# Exemple: https://onlymatt-gateway-xyz.onrender.com
+# Exemple: https://onlymatt-gateway.onrender.com
 
 echo "=== HEALTH CHECKS ==="
 
 # Health check de base
 echo "1. Health check de base:"
-curl https://VOTRE_APP_RENDER/health
+curl https://onlymatt-gateway.onrender.com/health
 
 echo -e "\n2. Health check AI (avec clé admin):"
 curl -H "x-om-key: sk_admin_e0e7fbda4b440ad82606c940d6fa084f" \
