@@ -10,20 +10,20 @@ curl https://onlymatt-gateway.onrender.com/health
 
 echo -e "\n2. Health check AI (avec clé admin):"
 curl -H "x-om-key: sk_admin_e0e7fbda4b440ad82606c940d6fa084f" \
-     https://VOTRE_APP_RENDER/ai/health
+     https://onlymatt-gateway.onrender.com/ai/health
 
 echo -e "\n=== TESTS FONCTIONNELS ==="
 
 # Test d'analyse de site web
 echo -e "\n3. Test d'analyse de site web:"
-curl -X POST https://VOTRE_APP_RENDER/ai/website/analyze \
+curl -X POST https://onlymatt-gateway.onrender.com/ai/website/analyze \
      -H "Content-Type: application/json" \
      -H "x-om-key: sk_admin_e0e7fbda4b440ad82606c940d6fa084f" \
      -d '{"url": "https://example.com"}'
 
 # Test de génération de site
 echo -e "\n4. Test de génération de site:"
-curl -X POST https://VOTRE_APP_RENDER/ai/website/generate \
+curl -X POST https://onlymatt-gateway.onrender.com/ai/website/generate \
      -H "Content-Type: application/json" \
      -H "x-om-key: sk_admin_e0e7fbda4b440ad82606c940d6fa084f" \
      -d '{
@@ -38,6 +38,6 @@ curl -X POST https://VOTRE_APP_RENDER/ai/website/generate \
      }'
 
 echo -e "\n=== INSTRUCTIONS ==="
-echo "1. Remplacez VOTRE_APP_RENDER par votre URL Render réelle"
-echo "2. Vérifiez que l'app est déployée et en ligne"
-echo "3. Tous les tests devraient retourner du JSON valide"
+echo "✅ Script configuré avec l'URL Render: https://onlymatt-gateway.onrender.com"
+echo "✅ Tous les tests utilisent l'URL de production"
+echo "✅ Vérifiez que les réponses JSON sont valides"
