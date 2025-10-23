@@ -150,7 +150,7 @@ async def ai_chat(request: Request):
         try:
             # Convert payload to Groq format
             groq_payload = {
-                "model": payload.get("model", "llama3-70b-8192"),
+                "model": payload.get("model", "llama-3.1-70b-versatile"),
                 "messages": payload.get("messages", []),
                 "temperature": payload.get("temperature", 0.7),
                 "max_tokens": payload.get("max_tokens", 1024),
