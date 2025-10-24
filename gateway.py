@@ -1728,3 +1728,34 @@ async def admin_reports(request: Request):
 @app.get("/admin/analysis")
 async def admin_analysis(request: Request):
     return templates.TemplateResponse("analysis.html", {"request": request})
+
+from pydantic import BaseModel
+import os, os.path
+
+class _FsListReq(BaseModel):
+    path: str
+
+@app.post("/fs/list")
+def fs_list(req: _FsListReq):
+    p = req.path
+    if not os.path.exists(p):
+        return {"ok": False, "error": f"Path not found: {p}"}
+    if not os.path.isdir(p):
+        # fichier unique
+        st = os.stat(p)
+        name = os.path.basename(p)
+        ext = os.path.splitext(name)[1].lower()
+        return {"ok": True, "path": p, "items":[{"name": name, "size": st.st_size, "ext": ext}]}
+    # dossier : items non cachés (niveau 1)
+    items = []
+    for name in sorted(os.listdir(p)):
+        if name.startswith("."): 
+            continue
+        full = os.path.join(p, name)
+        try:
+            st = os.stat(full)
+            ext = os.path.splitext(name)[1].lower() if os.path.isfile(full) else ""
+            items.append({"name": name, "size": st.st_size, "ext": ext, "dir": os.path.isdir(full)})
+        except Exception as e:
+            items.append({"name": name, "error": str(e)})
+    return {"ok": True, "path": p, "items": items}
