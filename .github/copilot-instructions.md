@@ -1,0 +1,1 @@
+make sure the the ai Hey Hi is ready to work according to the files of those 3 folders
