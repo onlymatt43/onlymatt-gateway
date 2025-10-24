@@ -4,6 +4,7 @@ from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, HTTPException, Body, Header, Response, UploadFile, File, Form
 from fastapi.responses import RedirectResponse, RedirectResponse
+from db_health import router as db_health_router
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -27,6 +28,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
 app = FastAPI(title="ONLYMATT Gateway", version="prod-1.6")
 
+app.include_router(db_health_router)
 # Templates
 from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="templates")
