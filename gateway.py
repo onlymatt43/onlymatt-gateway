@@ -3,6 +3,7 @@ import os, time, logging, httpx
 from typing import Optional, Deque, Dict
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, HTTPException, Body, Header, Response, UploadFile, File, Form
+from routes_ai import router as ai_router
 from fastapi.responses import RedirectResponse, RedirectResponse
 from db_health import router as db_health_router
 from fastapi.responses import JSONResponse
@@ -26,7 +27,9 @@ TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
 # ---------- App ----------
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
+
 app = FastAPI(title="ONLYMATT Gateway", version="prod-1.6")
+app.include_router(ai_router)
 
 app.include_router(db_health_router)
 # Templates
