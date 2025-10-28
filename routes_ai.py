@@ -38,10 +38,10 @@ async def ensure_schema():
       ts INTEGER
     );""")
 
-# Only ensure schema if DB is available
-if db is not None:
-    import asyncio
-    asyncio.run(ensure_schema())
+# Schema creation is handled by gateway.py startup event
+# if db is not None:
+#     import asyncio
+#     asyncio.run(ensure_schema())
 
 class ChatReq(BaseModel):
     user_id: str = "matt"
