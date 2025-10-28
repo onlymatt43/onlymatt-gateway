@@ -104,7 +104,7 @@ class OnlyMatt_AI_Plugin {
         wp_localize_script('onlymatt-admin-js', 'onlymatt_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('onlymatt_nonce'),
-            'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
+            'api_base' => get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com'),
             'admin_key' => get_option('onlymatt_admin_key', 'test_key')
         ));
     }
@@ -116,48 +116,25 @@ class OnlyMatt_AI_Plugin {
         wp_localize_script('onlymatt-frontend-js', 'onlymatt_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('onlymatt_nonce'),
-            'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
+            'api_base' => get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com'),
             'admin_key' => get_option('onlymatt_admin_key', 'test_key')
         ));
     }
 
     // Admin pages
     public function admin_page() {
-        wp_localize_script('onlymatt-admin-js', 'onlymatt_ajax', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('onlymatt_nonce'),
-            'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com')
-        ));
         include ONLYMATT_AI_PLUGIN_DIR . 'templates/admin-dashboard.php';
     }
 
     public function chat_page() {
-        wp_localize_script('onlymatt-admin-js', 'onlymatt_ajax', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('onlymatt_nonce'),
-            'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
-            'admin_key' => get_option('onlymatt_admin_key', 'test_key')
-        ));
         include ONLYMATT_AI_PLUGIN_DIR . 'templates/admin-chat.php';
     }
 
     public function tasks_page() {
-        wp_localize_script('onlymatt-admin-js', 'onlymatt_ajax', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('onlymatt_nonce'),
-            'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
-            'admin_key' => get_option('onlymatt_admin_key', 'test_key')
-        ));
         include ONLYMATT_AI_PLUGIN_DIR . 'templates/admin-tasks.php';
     }
 
     public function settings_page() {
-        wp_localize_script('onlymatt-admin-js', 'onlymatt_ajax', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('onlymatt_nonce'),
-            'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
-            'admin_key' => get_option('onlymatt_admin_key', 'test_key')
-        ));
         include ONLYMATT_AI_PLUGIN_DIR . 'templates/admin-settings.php';
     }
 
@@ -170,7 +147,7 @@ class OnlyMatt_AI_Plugin {
             wp_localize_script('onlymatt-frontend-js', 'onlymatt_ajax', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('onlymatt_nonce'),
-                'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
+                'api_base' => get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com'),
                 'admin_key' => get_option('onlymatt_admin_key', 'test_key')
             ));
         }
@@ -208,7 +185,7 @@ class OnlyMatt_AI_Plugin {
             wp_localize_script('onlymatt-admin-js', 'onlymatt_ajax', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('onlymatt_nonce'),
-                'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
+                'api_base' => get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com'),
                 'admin_key' => get_option('onlymatt_admin_key', 'test_key')
             ));
         }
@@ -231,7 +208,7 @@ class OnlyMatt_AI_Plugin {
             wp_localize_script('onlymatt-frontend-js', 'onlymatt_ajax', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('onlymatt_nonce'),
-                'api_base' => get_option('onlymatt_api_base', 'https://your-app.onrender.com'),
+                'api_base' => get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com'),
                 'admin_key' => get_option('onlymatt_admin_key', 'test_key')
             ));
         }
@@ -305,7 +282,7 @@ class OnlyMatt_AI_Plugin {
         return $site_info;
     }
 
-        // AJAX handlers
+    // AJAX handlers
     public function handle_chat_ajax() {
         check_ajax_referer('onlymatt_nonce', 'nonce');
 
@@ -333,11 +310,11 @@ class OnlyMatt_AI_Plugin {
             'headers' => array(
                 'Content-Type' => 'application/json',
             ),
-            'timeout' => 60 // Increased timeout for complex tasks
+            'timeout' => 60
         ));
 
         if (is_wp_error($response)) {
-            wp_send_json_error('Erreur de connexion à l\'API');
+            wp_send_json_error('Erreur de connexion à l\'API: ' . $response->get_error_message());
         } else {
             $body = wp_remote_retrieve_body($response);
             $data = json_decode($body, true);
@@ -358,7 +335,7 @@ class OnlyMatt_AI_Plugin {
         $user_id = sanitize_text_field($_POST['user_id']);
         $key = sanitize_text_field($_POST['key']);
         $value = sanitize_textarea_field($_POST['value']);
-        $api_base = get_option('onlymatt_api_base', 'https://your-app.onrender.com');
+        $api_base = get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com');
 
         $response = wp_remote_post($api_base . '/ai/memory/remember', array(
             'body' => json_encode(array(
@@ -374,7 +351,7 @@ class OnlyMatt_AI_Plugin {
         ));
 
         if (is_wp_error($response)) {
-            wp_send_json_error('Erreur de sauvegarde');
+            wp_send_json_error('Erreur de sauvegarde: ' . $response->get_error_message());
         } else {
             wp_send_json_success('Mémoire sauvegardée');
         }
@@ -383,7 +360,7 @@ class OnlyMatt_AI_Plugin {
     public function handle_get_tasks_ajax() {
         check_ajax_referer('onlymatt_nonce', 'nonce');
 
-        $api_base = get_option('onlymatt_api_base', 'https://your-app.onrender.com');
+        $api_base = get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com');
 
         $response = wp_remote_get($api_base . '/admin/tasks', array(
             'headers' => array(
@@ -393,7 +370,7 @@ class OnlyMatt_AI_Plugin {
         ));
 
         if (is_wp_error($response)) {
-            wp_send_json_error('Erreur de récupération');
+            wp_send_json_error('Erreur de récupération: ' . $response->get_error_message());
         } else {
             $body = wp_remote_retrieve_body($response);
             $data = json_decode($body, true);
@@ -407,7 +384,7 @@ class OnlyMatt_AI_Plugin {
         $title = sanitize_text_field($_POST['title']);
         $description = sanitize_textarea_field($_POST['description']);
         $priority = sanitize_text_field($_POST['priority']);
-        $api_base = get_option('onlymatt_api_base', 'https://your-app.onrender.com');
+        $api_base = get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com');
 
         $response = wp_remote_post($api_base . '/admin/tasks', array(
             'body' => json_encode(array(
@@ -423,33 +400,74 @@ class OnlyMatt_AI_Plugin {
         ));
 
         if (is_wp_error($response)) {
-            wp_send_json_error('Erreur de création');
+            wp_send_json_error('Erreur de création: ' . $response->get_error_message());
         } else {
             wp_send_json_success('Tâche créée');
         }
     }
 
     public function handle_save_settings_ajax() {
-        check_ajax_referer('onlymatt_nonce', 'nonce');
+        try {
+            // Log d'entrée pour débogage
+            error_log('ONLYMATT: handle_save_settings_ajax called');
 
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Insufficient permissions');
+            // Vérifications de sécurité
+            if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'onlymatt_nonce')) {
+                error_log('ONLYMATT: Nonce check failed');
+                wp_send_json_error('Nonce de sécurité invalide');
+                wp_die();
+            }
+
+            if (!current_user_can('manage_options')) {
+                error_log('ONLYMATT: Permission check failed');
+                wp_send_json_error('Permissions insuffisantes - vous devez être administrateur');
+                wp_die();
+            }
+
+            error_log('ONLYMATT: Security checks passed');
+
+            $settings = json_decode(stripslashes($_POST['settings']), true);
+
+            if (!$settings) {
+                error_log('ONLYMATT: Settings decode failed. Raw POST: ' . print_r($_POST, true));
+                wp_send_json_error('Données de paramètres invalides ou manquantes');
+                wp_die();
+            }
+
+            // Debug log
+            error_log('ONLYMATT Settings save - Data received: ' . print_r($settings, true));
+
+            // Validation basique des données
+            $api_base = trim($settings['api_base'] ?? '');
+            if (empty($api_base)) {
+                error_log('ONLYMATT: API base empty');
+                wp_send_json_error('L\'URL de l\'API ne peut pas être vide');
+                wp_die();
+            }
+
+            $admin_key = trim($settings['admin_key'] ?? '');
+            $max_memory = max(10, min(1000, intval($settings['max_memory'] ?? 100)));
+
+            error_log('ONLYMATT: Validation passed, updating options');
+
+            // Sauvegarder les options
+            $result1 = update_option('onlymatt_api_base', $api_base);
+            $result2 = update_option('onlymatt_admin_key', $admin_key);
+            $result3 = update_option('onlymatt_max_memory', $max_memory);
+            $result4 = update_option('onlymatt_enable_logging', !empty($settings['enable_logging']) ? '1' : '0');
+            $result5 = update_option('onlymatt_enable_widget', !empty($settings['enable_widget']) ? '1' : '0');
+
+            // Debug log
+            error_log('ONLYMATT Settings saved: api_base=' . $api_base . ', results=' . implode(',', [$result1, $result2, $result3, $result4, $result5]));
+
+            error_log('ONLYMATT: Sending success response');
+            wp_send_json_success('Paramètres sauvegardés avec succès');
+            wp_die();
+        } catch (Exception $e) {
+            error_log('ONLYMATT: Exception in handle_save_settings_ajax: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            wp_send_json_error('Erreur interne: ' . $e->getMessage());
+            wp_die();
         }
-
-        $settings = json_decode(stripslashes($_POST['settings']), true);
-
-        if (!$settings) {
-            wp_send_json_error('Invalid settings data');
-        }
-
-        // Save settings
-        update_option('onlymatt_api_base', sanitize_url($settings['api_base'] ?? ''));
-        update_option('onlymatt_admin_key', sanitize_text_field($settings['admin_key'] ?? ''));
-        update_option('onlymatt_max_memory', intval($settings['max_memory'] ?? 100));
-        update_option('onlymatt_enable_logging', $settings['enable_logging'] ? '1' : '0');
-        update_option('onlymatt_enable_widget', $settings['enable_widget'] ? '1' : '0');
-
-        wp_send_json_success('Settings saved');
     }
 
     // REST API routes
@@ -475,7 +493,7 @@ class OnlyMatt_AI_Plugin {
 
     public function rest_chat($request) {
         $message = $request->get_param('message');
-        $api_base = get_option('onlymatt_api_base', 'https://your-app.onrender.com');
+        $api_base = get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com');
 
         $response = wp_remote_post($api_base . '/ai/chat', array(
             'body' => json_encode(array('messages' => array(array('role' => 'user', 'content' => $message)))),
@@ -493,7 +511,7 @@ class OnlyMatt_AI_Plugin {
 
     public function rest_save_memory($request) {
         $params = $request->get_params();
-        $api_base = get_option('onlymatt_api_base', 'https://your-app.onrender.com');
+        $api_base = get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com');
 
         $response = wp_remote_post($api_base . '/ai/memory/remember', array(
             'body' => json_encode($params),
@@ -509,7 +527,7 @@ class OnlyMatt_AI_Plugin {
     }
 
     public function rest_get_tasks($request) {
-        $api_base = get_option('onlymatt_api_base', 'https://your-app.onrender.com');
+        $api_base = get_option('onlymatt_api_base', 'https://onlymatt-gateway.onrender.com');
 
         $response = wp_remote_get($api_base . '/admin/tasks', array(
             'headers' => array(
