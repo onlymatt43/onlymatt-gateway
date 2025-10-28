@@ -150,16 +150,39 @@ async def ai_chat(request: Request):
     except Exception:
         raise HTTPException(400, "Bad JSON")
 
+    # Support both formats: OpenAI format (messages array) and simplified format (thread_id, message)
+    if "messages" in payload:
+        # OpenAI format
+        messages = payload.get("messages", [])
+        temperature = payload.get("temperature", 0.7)
+        max_tokens = payload.get("max_tokens", 1024)
+        model = payload.get("model", "llama-3.3-70b-versatile")
+    elif "message" in payload:
+        # Simplified format (WordPress plugin)
+        user_message = payload.get("message", "")
+        system_message = payload.get("system_prompt", "")
+        temperature = payload.get("temperature", 0.7)
+        max_tokens = payload.get("max_tokens", 1024)
+        model = payload.get("model", "llama-3.3-70b-versatile")
+
+        # Convert to OpenAI format
+        messages = []
+        if system_message:
+            messages.append({"role": "system", "content": system_message})
+        messages.append({"role": "user", "content": user_message})
+    else:
+        raise HTTPException(400, "Either 'messages' array or 'message' field is required")
+
     # Support for Groq API
     if GROQ_API_KEY and (AI_BACKEND == "groq" or not (OLLAMA_URL or AI_BACKEND)):
         try:
-            # Convert payload to Groq format
+            # Convert to Groq format
             groq_payload = {
-                "model": payload.get("model", "llama-3.3-70b-versatile"),
-                "messages": payload.get("messages", []),
-                "temperature": payload.get("temperature", 0.7),
-                "max_tokens": payload.get("max_tokens", 1024),
-                "stream": payload.get("stream", False)
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": False
             }
 
             timeout = httpx.Timeout(60.0, read=60.0, write=30.0, connect=10.0)
