@@ -207,7 +207,7 @@ async def ai_chat(request: Request):
             return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     # Fallback to existing proxy logic
-    target = OLLAMA_URL or AI_BACKEND
+    target = OLLAMA_URL or (AI_BACKEND if AI_BACKEND not in ["groq", "ollama"] else None)
     if not target:
         raise HTTPException(502, "No AI backend configured")
     try:
