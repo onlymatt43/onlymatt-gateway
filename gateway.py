@@ -28,7 +28,7 @@ TURSO_DB_AUTH = os.getenv("TURSO_DB_AUTH_TOKEN", "")
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("om-gateway")
 
-app = FastAPI(title="ONLYMATT Gateway", version="prod-1.6")
+app = FastAPI(title="ONLYMATT Gateway", version="prod-1.7")
 app.include_router(ai_router)
 
 app.include_router(db_health_router)
