@@ -98,29 +98,3 @@ async def _call_ollama(messages, temperature, max_tokens):
             raise HTTPException(502, f"Ollama {r.status_code}: {r.text[:400]}")
         j = r.json()
         return j["choices"][0]["message"]["content"].strip()
-
-## Route /ai/chat désactivée pour éviter le conflit avec gateway.py
-#@router.post("/chat")
-#async def chat(req: ChatReq):
-#    db.execute(
-#        "INSERT OR IGNORE INTO ai_threads(thread_id, user_id, created_at) VALUES(?,?,?)",
-#        (req.thread_id, req.user_id, int(time.time()))
-#    )
-#
-#    msgs = []
-#    if req.system:
-#        msgs.append({"role": "system", "content": req.system})
-#    for r in _history(req.thread_id):
-#        msgs.append({"role": r["role"], "content": r["content"]})
-#    msgs.append({"role": "user", "content": req.message})
-#
-#    if AI_BACKEND == "groq":
-#        reply = await _call_groq(msgs, req.temperature, req.max_tokens)
-#    else:
-#        reply = await _call_ollama(msgs, req.temperature, req.max_tokens)
-#
-#    if req.remember:
-#        _save(req.thread_id, "user", req.message)
-#        _save(req.thread_id, "assistant", reply)
-#
-#    return {"reply": reply}
