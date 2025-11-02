@@ -1,4 +1,29 @@
 // Analysis functionality
+
+function getAdminHeaders(extraHeaders, message) {
+    try {
+        if (window.omAdminHeaders) {
+            return window.omAdminHeaders(extraHeaders);
+        }
+    } catch (error) {
+        if (error && (error.code === 'missing_admin_key' || error.message === 'missing_admin_key')) {
+            alert(message || 'Cette action nécessite une clé administrateur.');
+            return null;
+        }
+        throw error;
+    }
+
+    const key = window.prompt('Entrez la clé administrateur (X-OM-Key)');
+    if (!key) {
+        alert(message || 'Cette action nécessite une clé administrateur.');
+        return null;
+    }
+    if (window.omSetAdminKey) {
+        window.omSetAdminKey(key);
+    }
+    return Object.assign({}, extraHeaders || {}, { 'X-OM-Key': key.trim() });
+}
+
 document.getElementById('folder-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -13,10 +38,14 @@ async function exploreFolder(path, recursive) {
     resultsDiv.innerHTML = '<p>Exploration en cours...</p>';
 
     try {
+        const headers = getAdminHeaders({}, 'Veuillez fournir votre clé administrateur pour explorer les dossiers.');
+        if (!headers) {
+            resultsDiv.innerHTML = '<p class="text-danger">Clé administrateur requise.</p>';
+            return;
+        }
+
         const response = await fetch(`/ai/files/list?path=${encodeURIComponent(path)}&recursive=${recursive}`, {
-            headers: {
-                'X-OM-Key': 'test_key' // In production, get from secure source
-            }
+            headers
         });
 
         const data = await response.json();
@@ -111,12 +140,16 @@ async function checkChanges() {
 
 async function saveAnalysis(type, results, stats) {
     try {
+        const headers = getAdminHeaders({
+            'Content-Type': 'application/json'
+        }, 'Veuillez fournir votre clé administrateur pour enregistrer cette analyse.');
+        if (!headers) {
+            return;
+        }
+
         const response = await fetch('/admin/analyses', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-OM-Key': 'test_key'
-            },
+            headers,
             body: JSON.stringify({
                 type: type,
                 results: results,
@@ -186,10 +219,14 @@ async function loadRecentFiles() {
     const recentDiv = document.getElementById('recent-files');
 
     try {
+        const headers = getAdminHeaders({}, 'Veuillez fournir votre clé administrateur pour charger les fichiers récents.');
+        if (!headers) {
+            recentDiv.innerHTML = '<p class="text-danger">Clé administrateur requise.</p>';
+            return;
+        }
+
         const response = await fetch('/ai/files/list?recursive=false', {
-            headers: {
-                'X-OM-Key': 'test_key'
-            }
+            headers
         });
 
         const data = await response.json();

@@ -11,6 +11,7 @@
 | `Procfile` | Fichier config | ~53B | Commande de démarrage pour Render/Heroku |
 | `CONFIGURATION_GUIDE.md` | Documentation | ~7.7KB | **Guide complet** que vous lisez actuellement |
 | `README.md` | Documentation | ~3.4KB | Documentation générale du projet |
+| `onlymatt-wp-plugin-main-6/` | Dossier WordPress | ~??KB | Source unique du plugin WordPress `onlymatt-ai.php` + assets |
 | `.env` | Configuration | ~566B | Variables d'environnement (clés API, etc.) |
 | `.gitignore` | Configuration | ~41B | Fichiers à ignorer par Git |
 | `__pycache__/` | Cache Python | | Cache de compilation Python (généré automatiquement) |
@@ -121,6 +122,9 @@
 - [ ] Plugin "Application Passwords" activé
 - [ ] Génération d'un mot de passe d'application
 - [ ] Permissions d'écriture sur l'API REST
+- [ ] Synchroniser le plugin depuis `onlymatt-wp-plugin-main-6/` avec `./onlymatt-wp-plugin-main-6/sync-to-wordpress.sh --dest /chemin/vers/wp-content/plugins/onlymatt-wp-plugin`
+- [ ] Éviter toute modification directe de `wp-content/plugins/onlymatt-wp-plugin/` : considérer cette copie comme un artefact généré par le script de synchronisation.
+- [ ] (om43.com) Lancer `./onlymatt-wp-plugin-main-6/configure-om43.sh [chemin_wp]` pour pousser l'API Base et la clé admin via WP-CLI.
 
 ### 🖥️ Configuration Système Local
 

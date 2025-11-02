@@ -1,4 +1,33 @@
 // Chat functionality
+
+function getAdminHeaders(extraHeaders, message) {
+    try {
+        if (window.omAdminHeaders) {
+            return window.omAdminHeaders(extraHeaders);
+        }
+    } catch (error) {
+        if (error && (error.code === 'missing_admin_key' || error.message === 'missing_admin_key')) {
+            if (message) {
+                alert(message);
+            }
+            return null;
+        }
+        throw error;
+    }
+
+    const key = window.prompt('Entrez la clé administrateur (X-OM-Key)');
+    if (!key) {
+        if (message) {
+            alert(message);
+        }
+        return null;
+    }
+    if (window.omSetAdminKey) {
+        window.omSetAdminKey(key);
+    }
+    return Object.assign({}, extraHeaders || {}, { 'X-OM-Key': key.trim() });
+}
+
 let chatMessages = document.getElementById('chat-messages');
 let messageInput = document.getElementById('message-input');
 let temperatureSlider = document.getElementById('temperature');
@@ -49,12 +78,16 @@ async function sendMessage() {
 
 async function saveChatHistory(userMessage, assistantResponse) {
     try {
+        const headers = getAdminHeaders({
+            'Content-Type': 'application/json'
+        }, 'Clé administrateur requise pour enregistrer l\'historique du chat.');
+        if (!headers) {
+            return;
+        }
+
         const response = await fetch('/admin/chat/history', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-OM-Key': 'test_key'
-            },
+            headers,
             body: JSON.stringify({
                 user_message: userMessage,
                 assistant_response: assistantResponse,

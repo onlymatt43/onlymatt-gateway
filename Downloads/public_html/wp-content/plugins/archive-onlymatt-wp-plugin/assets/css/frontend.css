@@ -1,0 +1,249 @@
+/* ONLYMATT AI Frontend Styles */
+
+/* Chat styles */
+.onlymatt-chat-container {
+    max-width: 600px;
+    margin: 20px auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+
+.onlymatt-chat-header {
+    background: #007cba;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.messages {
+    height: 300px;
+    overflow-y: auto;
+    padding: 15px;
+    background: #f9f9f9;
+}
+
+.message {
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 18px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+.message.user {
+    background: #007cba;
+    color: white;
+    margin-left: auto;
+    text-align: right;
+}
+
+.message.ai {
+    background: white;
+    border: 1px solid #ddd;
+    margin-right: auto;
+}
+
+.message.error {
+    background: #dc3232;
+    color: white;
+}
+
+.message.loading {
+    font-style: italic;
+    color: #666;
+}
+
+.onlymatt-chat-form {
+    display: flex;
+    padding: 15px;
+    background: white;
+    border-top: 1px solid #ddd;
+}
+
+.onlymatt-chat-form input[type="text"] {
+    flex: 1;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 25px;
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+.onlymatt-chat-form button {
+    padding: 10px 20px;
+    background: #007cba;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.onlymatt-chat-form button:hover {
+    background: #005a87;
+}
+
+/* Hey Hi Sphere */
+.hey-hi-sphere {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(45deg, #007cba, #005a87);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 9999;
+    transition: transform 0.3s;
+}
+
+.hey-hi-sphere:hover {
+    transform: scale(1.1);
+}
+
+.hey-hi-chat {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 350px;
+    height: 400px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: none;
+    flex-direction: column;
+    z-index: 9998;
+}
+
+.hey-hi-chat .messages {
+    flex: 1;
+    height: auto;
+    min-height: 300px;
+}
+
+.hey-hi-chat .onlymatt-chat-form {
+    border-top: 1px solid #ddd;
+    margin: 0;
+    padding: 10px;
+}
+
+/* Web Builder */
+.web-builder {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.web-builder h3 {
+    color: #23282d;
+    margin-top: 0;
+}
+
+.web-builder-form {
+    display: grid;
+    gap: 15px;
+}
+
+.web-builder-form input,
+.web-builder-form select,
+.web-builder-form textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.web-builder-form textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.web-builder .button {
+    background: #007cba;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.web-builder .button:hover {
+    background: #005a87;
+}
+
+.builder-result {
+    margin-top: 20px;
+    padding: 15px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+/* Admin Dashboard */
+.onlymatt-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.dashboard-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dashboard-card h3 {
+    color: #23282d;
+    margin-top: 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.dashboard-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.dashboard-stat .number {
+    font-size: 24px;
+    font-weight: bold;
+    color: #007cba;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .onlymatt-chat-container {
+        margin: 10px;
+    }
+
+    .hey-hi-chat {
+        width: calc(100vw - 40px);
+        right: 10px;
+        bottom: 80px;
+    }
+
+    .onlymatt-dashboard {
+        grid-template-columns: 1fr;
+    }
+}

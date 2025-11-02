@@ -63,6 +63,15 @@ uvicorn gateway:app --reload
 python test.py
 ```
 
+## WordPress Plugin
+
+- Le plugin WordPress officiel vit dans `onlymatt-wp-plugin-main-6/` (fichier principal `onlymatt-ai.php`). Modifiez toujours cette copie pour éviter les divergences.
+- Pour synchroniser vers une instance WordPress locale (par défaut `~/Downloads/public_html/wp-content/plugins/onlymatt-wp-plugin`), exécutez `./onlymatt-wp-plugin-main-6/sync-to-wordpress.sh`. Ajoutez `--dry-run` pour voir les opérations et `--safe` pour éviter de supprimer les fichiers supplémentaires côté WordPress.
+- Passez un chemin personnalisé avec `--dest /chemin/vers/wp-content/plugins/onlymatt-wp-plugin` si votre installation n'est pas sous `Downloads/`.
+- La copie située dans `Downloads/public_html/wp-content/plugins/onlymatt-wp-plugin/` est la version déployée sur votre WordPress local : ne l'éditez pas directement, relancez plutôt la synchronisation après toute modification.
+- Après chaque modification du backend (`gateway.py`) qui impacte les appels AJAX (`/ai/chat`, `/admin/tasks`, `/ai/memory/*`, `/ai/website/*`), synchronisez le plugin puis rafraîchissez le cache WordPress pour vérifier les flux.
+- Pour om43.com, un helper `./onlymatt-wp-plugin-main-6/configure-om43.sh [chemin_wordpress]` met à jour automatiquement l'API Base (`https://api.om43.com`) et les options principales via WP-CLI.
+
 ## 🏗️ Architecture
 
 ### Domaines et sous-domaines

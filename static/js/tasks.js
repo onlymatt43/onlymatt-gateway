@@ -1,6 +1,30 @@
 // Tasks functionality
 let tasks = [];
 
+function getAdminHeaders(extraHeaders, message) {
+    try {
+        if (window.omAdminHeaders) {
+            return window.omAdminHeaders(extraHeaders);
+        }
+    } catch (error) {
+        if (error && (error.code === 'missing_admin_key' || error.message === 'missing_admin_key')) {
+            alert(message || 'Cette action nécessite une clé administrateur.');
+            return null;
+        }
+        throw error;
+    }
+
+    const key = window.prompt('Entrez la clé administrateur (X-OM-Key)');
+    if (!key) {
+        alert(message || 'Cette action nécessite une clé administrateur.');
+        return null;
+    }
+    if (window.omSetAdminKey) {
+        window.omSetAdminKey(key);
+    }
+    return Object.assign({}, extraHeaders || {}, { 'X-OM-Key': key.trim() });
+}
+
 document.getElementById('task-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -11,12 +35,17 @@ document.getElementById('task-form').addEventListener('submit', async function(e
     };
 
     try {
+        const headers = getAdminHeaders({
+            'Content-Type': 'application/json'
+        }, 'Veuillez fournir votre clé administrateur pour ajouter une tâche.');
+
+        if (!headers) {
+            return;
+        }
+
         const response = await fetch('/admin/tasks', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-OM-Key': 'test_key' // In production, get from secure source
-            },
+            headers,
             body: JSON.stringify(data)
         });
 
@@ -36,10 +65,14 @@ document.getElementById('task-form').addEventListener('submit', async function(e
 
 async function loadTasks() {
     try {
+        const headers = getAdminHeaders({}, 'Veuillez fournir votre clé administrateur pour consulter les tâches.');
+        if (!headers) {
+            document.getElementById('tasks-list').innerHTML = '<p class="text-danger">Clé administrateur requise.</p>';
+            return;
+        }
+
         const response = await fetch('/admin/tasks', {
-            headers: {
-                'X-OM-Key': 'test_key'
-            }
+            headers
         });
         const data = await response.json();
 
@@ -81,12 +114,16 @@ function renderTasks() {
 
 async function completeTask(id) {
     try {
+        const headers = getAdminHeaders({
+            'Content-Type': 'application/json'
+        }, 'Veuillez fournir votre clé administrateur pour mettre à jour une tâche.');
+        if (!headers) {
+            return;
+        }
+
         const response = await fetch(`/admin/tasks/${id}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-OM-Key': 'test_key'
-            },
+            headers,
             body: JSON.stringify({ status: 'completed' })
         });
 
@@ -104,11 +141,14 @@ async function deleteTask(id) {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) return;
 
     try {
+        const headers = getAdminHeaders({}, 'Veuillez fournir votre clé administrateur pour supprimer une tâche.');
+        if (!headers) {
+            return;
+        }
+
         const response = await fetch(`/admin/tasks/${id}`, {
             method: 'DELETE',
-            headers: {
-                'X-OM-Key': 'test_key'
-            }
+            headers
         });
 
         if (response.ok) {
